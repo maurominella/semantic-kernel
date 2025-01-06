@@ -1,3 +1,5 @@
+﻿// Copyright (c) Microsoft. All rights reserved.
+
 ﻿// See https://aka.ms/new-console-template for more information
 // Import packages
 using Microsoft.Extensions.DependencyInjection;
@@ -8,7 +10,12 @@ using Microsoft.SemanticKernel.Connectors.OpenAI;
 using DotNetEnv;
 using MyApp.Plugins;
 
+
 Console.WriteLine("Application starts");
+
+string currentDirectory = Directory.GetCurrentDirectory(); 
+Console.WriteLine($"Current Directory: {currentDirectory}");
+
 
 // Load the environment variables from the .env file
 Env.Load("./../../config/credentials_my.env");
