@@ -1,6 +1,6 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
-﻿// See https://aka.ms/new-console-template for more information
+// See https://aka.ms/new-console-template for more information
 // Import packages
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -9,7 +9,6 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using DotNetEnv;
 using MyApp.Plugins;
-using Microsoft.SemanticKernel.Agents;
 
 string projectRoot;
 
@@ -65,31 +64,6 @@ OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
 // Create a history store the conversation
 var history = new ChatHistory();
 
-
-string agent_name = "agent_name";
-string instructions = "you are a clever agent";
-
-Console.WriteLine("Defining agent...");
-
-#pragma warning disable SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-ChatCompletionAgent agent =
-    new()
-    {
-        Name = agent_name,
-        Instructions = instructions,
-        Kernel = kernel,
-        Arguments =
-            new KernelArguments(openAIPromptExecutionSettings)
-            {
-                { "repository", "microsoft/semantic-kernel" }
-            }
-    };
-#pragma warning restore SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-
-
-Console.WriteLine("Agent is ready!");
-
-
 // Initiate a back-and-forth chat
 string? userInput;
 do
@@ -103,17 +77,18 @@ do
     {
         history.AddUserMessage(userInput);
 
+        // Get the response from the AI
+        var result = await chatCompletionService.GetChatMessageContentAsync(
+            history,
+            executionSettings: openAIPromptExecutionSettings,
+            kernel: kernel);
 
-#pragma warning disable SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-        await foreach (ChatMessageContent response in agent.InvokeAsync(history))
-        {
-            Console.WriteLine($"{response.Content}");
-            // Add the message from the agent to the chat history
-            history.AddMessage(response.Role, response.Content ?? string.Empty);
-        }
-#pragma warning restore SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+        // Print the results
+        Console.WriteLine("Assistant > " + result);
 
+        // Add the message from the agent to the chat history
+        history.AddMessage(result.Role, result.Content ?? string.Empty);
     }
-} while (userInput is not null);
+} while (!userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
 
 Console.WriteLine("Application ends");

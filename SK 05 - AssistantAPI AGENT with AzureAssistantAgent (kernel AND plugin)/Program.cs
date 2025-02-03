@@ -44,8 +44,8 @@ internal class Program
         // Load the environment variables from the .env file
         Env.Load(envFilePath);
 
-        Console.WriteLine(@$"AZURE_OPENAI_ENDPOINT: {Env.GetString("AZURE_OPENAI_ENDPOINT")}\n
-AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")}");
+        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {Env.GetString("AZURE_OPENAI_ENDPOINT")}\n" +
+        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")}");
 
         // Create the Azure Chat Completion object, e.g. the pointer to Azure OpenAI
         var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
@@ -76,11 +76,11 @@ AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_
 
 
         // Create the OpenAI Assistant Agent
-        Console.WriteLine("Defining agent...");
+        Console.WriteLine("\nDefining agent...");
         string agent_name = "agent_name";
         string instructions = "you are a clever agent";
 
-        OpenAIAssistantAgent agent =
+        var agent =
             await OpenAIAssistantAgent.CreateAsync(
                 clientProvider: clientProvider,
                 definition: new OpenAIAssistantDefinition(Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"))
@@ -93,11 +93,11 @@ AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_
                 kernel: kernel
                 );
 
-        Console.WriteLine("Agent is ready!");
+        Console.WriteLine("...agent is ready.");
 
-        Console.WriteLine("Creating thread...");
+        Console.WriteLine("\nCreating thread...");
         string threadId = await agent.CreateThreadAsync();
-        Console.WriteLine("Thread was created");
+        Console.WriteLine("...thread was created.\n");
 
         // Initiate a back-and-forth chat
         bool isComplete = false;

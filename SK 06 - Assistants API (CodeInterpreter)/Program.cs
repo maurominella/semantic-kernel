@@ -69,6 +69,7 @@ internal class Program
         OpenAIFile fileDataCountryList = await fileClient.UploadFileAsync("./data/PopulationByCountry.csv", FileUploadPurpose.Assistants);
         Console.WriteLine("... files uploaded.");
 
+
         // Create the OpenAI Assistant Agent
         Console.WriteLine("\nDefining agent...");
         string agent_name = "agent_name";
