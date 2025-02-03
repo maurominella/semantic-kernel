@@ -1,6 +1,6 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
-﻿// See https://aka.ms/new-console-template for more information
+// See https://aka.ms/new-console-template for more information
 // Import packages
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -10,15 +10,30 @@ using Microsoft.SemanticKernel.Connectors.OpenAI;
 using DotNetEnv;
 using MyApp.Plugins;
 
+string projectRoot;
 
 Console.WriteLine("Application starts");
 
-string currentDirectory = Directory.GetCurrentDirectory(); 
-Console.WriteLine($"Current Directory: {currentDirectory}");
+// Get the base directory
+DirectoryInfo baseDirectory = new(AppDomain.CurrentDomain.BaseDirectory);
 
+// retrieve the project root folder
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
+if (baseDirectory.Parent.Parent.Name == "bin")
+{
+    projectRoot = baseDirectory.Parent.Parent.Parent.FullName;
+}
+else
+{
+    projectRoot = baseDirectory.FullName;
+}
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
+
+string envFilePath = Path.Combine(projectRoot, "./../../config/credentials_my.env");
+Console.WriteLine($"envFilePath: {envFilePath}");
 
 // Load the environment variables from the .env file
-Env.Load("./../../config/credentials_my.env");
+Env.Load(envFilePath);
 
 // Populate values from your OpenAI deployment
 var modelId = Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME");
@@ -27,7 +42,7 @@ var apiKey = Env.GetString("AZURE_OPENAI_API_KEY");
 
 Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {endpoint}\nAZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {modelId}");
 
-// Create a kernel with Azure OpenAI chat completion
+// Create the Azure Chat Completion object, e.g. the pointer to Azure OpenAI
 var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(modelId, endpoint, apiKey);
 
 // Add enterprise components

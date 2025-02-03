@@ -14,7 +14,7 @@ public class LightsPlugin
         {
             new LightModel { Id = 1, Name = "Table Lamp", IsOn = false },
             new LightModel { Id = 2, Name = "Porch light", IsOn = false },
-            new LightModel { Id = 3, Name = "Chandelier", IsOn = true }
+            new LightModel { Id = 3, Name = "Chandelier", IsOn = false }
         };
 
     [KernelFunction("get_lights")]
