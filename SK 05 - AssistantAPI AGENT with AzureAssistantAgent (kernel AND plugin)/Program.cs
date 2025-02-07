@@ -69,20 +69,20 @@ internal class Program
             FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
         };
 
-        // OpenAIClientProvider will be used for the Agent Definition as well as file-upload
-        var clientProvider = OpenAIClientProvider.ForAzureOpenAI(
-            credential: new AzureCliCredential(),
-            endpoint: new Uri(Env.GetString("AZURE_OPENAI_ENDPOINT")));
-
 
         // Create the OpenAI Assistant Agent
         Console.WriteLine("\nDefining agent...");
         string agent_name = "agent_name";
         string instructions = "you are a clever agent";
 
+        // OpenAIClientProvider will be used for the Agent Definition as well as file-upload
+        var clientProviderForAzure = OpenAIClientProvider.ForAzureOpenAI(
+            credential: new AzureCliCredential(),
+            endpoint: new Uri(Env.GetString("AZURE_OPENAI_ENDPOINT")));
+
         var agent =
             await OpenAIAssistantAgent.CreateAsync(
-                clientProvider: clientProvider,
+                clientProvider: clientProviderForAzure,
                 definition: new OpenAIAssistantDefinition(Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"))
                 {
                     Name = agent_name,
@@ -121,12 +121,15 @@ internal class Program
                 }
 
                 await agent.AddChatMessageAsync(threadId, new ChatMessageContent(AuthorRole.User, userInput));
+
                 try
                 {
                     await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(threadId))
                     {
                         // Display response.
                         Console.Write($"{response.Content}");
+
+                        // SK does NOT need to add the response to the thread history
                     }
                 }
                 catch (Exception ex)

@@ -39,7 +39,7 @@ internal class Program
         // Build the kernel, that already integrates the AzureOpenAIChatCompletion object
         Kernel kernel = builder.Build();
 
-        // Add enterprise components
+        // Add enterprise loggin components
         builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
 
         // Add a plugin (the LightsPlugin class is defined below)
@@ -52,12 +52,12 @@ internal class Program
         };
 
         // OpenAIClientProvider will be used for the Agent Definition as well as file-upload
-        var clientProvider = OpenAIClientProvider.ForAzureOpenAI(
+        var clientProviderForAzure = OpenAIClientProvider.ForAzureOpenAI(
             credential: new AzureCliCredential(),
             endpoint: new Uri(settings.AzureOpenAI.Endpoint));
 
-        OpenAIFileClient fileClient = clientProvider.Client.GetOpenAIFileClient();
-
+        // create a pointer to the file client provider
+        OpenAIFileClient fileClient = clientProviderForAzure.Client.GetOpenAIFileClient();
 
         // Delete existing files
         DeleteAllFiles(fileClient);
@@ -77,7 +77,7 @@ internal class Program
 
         OpenAIAssistantAgent agent =
             await OpenAIAssistantAgent.CreateAsync(
-                clientProvider: clientProvider,
+                clientProvider: clientProviderForAzure,
                 definition: new OpenAIAssistantDefinition(settings.AzureOpenAI.ChatModelDeployment)
                 {
                     Name = agent_name,
@@ -117,6 +117,7 @@ internal class Program
                 }
 
                 await agent.AddChatMessageAsync(threadId, new ChatMessageContent(AuthorRole.User, userInput));
+
                 try
                 {
                     bool isCode = false;

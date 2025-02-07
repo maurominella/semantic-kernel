@@ -51,6 +51,8 @@ builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(Lo
 
 // Build the kernel
 Kernel kernel = builder.Build();
+
+// Extract ChatCompletionService from the kernel
 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
 // Add a plugin (the LightsPlugin class is defined below)

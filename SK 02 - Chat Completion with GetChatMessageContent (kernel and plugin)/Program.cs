@@ -48,8 +48,10 @@ var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(modelId, endpo
 // Add enterprise components
 builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
 
-// Build the kernel
+// Build the kernel from the builder that already contains the ChatCompletionService
 Kernel kernel = builder.Build();
+
+// Extract ChatCompletionService from the kernel
 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
 // Add a plugin (the LightsPlugin class is defined below)
