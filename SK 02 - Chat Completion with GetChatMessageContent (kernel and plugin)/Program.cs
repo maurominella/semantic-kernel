@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
+using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using DotNetEnv;
 using MyApp.Plugins;
 
@@ -42,29 +42,29 @@ var apiKey = Env.GetString("AZURE_OPENAI_API_KEY");
 
 Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {endpoint}\nAZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {modelId}");
 
-// Create the Azure Chat Completion object, e.g. the pointer to Azure OpenAI
+// Create the kernel builder with the pointer to Azure OpenAI
 var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(modelId, endpoint, apiKey);
 
-// Add enterprise components
+// Use the kernel builder to add enterprise components (for logging, in this case)
 builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
 
-// Build the kernel from the builder that already contains the ChatCompletionService
+// Build the kernel from the builder that already contains ChatCompletionService + Logging services
 Kernel kernel = builder.Build();
 
-// Extract ChatCompletionService from the kernel
-var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
-
-// Add a plugin (the LightsPlugin class is defined below)
+// Add a plugin (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
 kernel.Plugins.AddFromType<LightsPlugin>("Lights");
 
 // Enable planning
-OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
+var openAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
 {
     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
 };
 
 // Create a history store the conversation
 var history = new ChatHistory();
+
+// Extract ChatCompletionService from the kernel
+var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
 // Initiate a back-and-forth chat
 string? userInput;

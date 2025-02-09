@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
+using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using MyApp.Plugins;
 using AgentsSample;
 using Microsoft.SemanticKernel.Agents.OpenAI;
@@ -29,24 +29,24 @@ internal class Program
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {settings.AzureOpenAI.Endpoint}\n" +
         $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {settings.AzureOpenAI.ChatModelDeployment}");
 
-        // Create the Azure Chat Completion object, e.g. the pointer to Azure OpenAI
+        // Create the kernel builder with the pointer to Azure OpenAI
         var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
             deploymentName: settings.AzureOpenAI.ChatModelDeployment,
             endpoint: settings.AzureOpenAI.Endpoint,
             apiKey: settings.AzureOpenAI.ApiKey
         );
 
-        // Build the kernel, that already integrates the AzureOpenAIChatCompletion object
+        // Build the kernel from the builder that already contains ChatCompletionService + Logging services
         Kernel kernel = builder.Build();
 
-        // Add enterprise loggin components
+        // Add enterprise logging components
         builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
 
-        // Add a plugin (the LightsPlugin class is defined below)
+        // Add a plugin (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
         kernel.Plugins.AddFromType<LightsPlugin>("Lights");
 
         // Enable planning
-        var openAIPromptExecutionSettings = new OpenAIPromptExecutionSettings()
+        var azureOpenAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
         {
             FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
         };
@@ -62,16 +62,15 @@ internal class Program
         // Delete existing files
         DeleteAllFiles(fileClient);
 
-
         // Upload files
         Console.WriteLine("\nUploading files...");
         OpenAIFile fileDataCountryDetail = await fileClient.UploadFileAsync("./data/PopulationByAdmin1.csv", FileUploadPurpose.Assistants);
         OpenAIFile fileDataCountryList = await fileClient.UploadFileAsync("./data/PopulationByCountry.csv", FileUploadPurpose.Assistants);
-        Console.WriteLine("... files uploaded.");
+        Console.WriteLine("...files were successfully uploaded.");
 
 
         // Create the OpenAI Assistant Agent
-        Console.WriteLine("\nDefining agent...");
+        Console.WriteLine("\nDefining Assisant Agent...");
         string agent_name = "agent_name";
         string instructions = "you are a clever agent";
 
@@ -88,7 +87,7 @@ internal class Program
                 },
                 kernel: kernel
                 );
-        Console.WriteLine("...agent is ready.");
+        Console.WriteLine("...Assistant Agent is ready.");
 
         Console.WriteLine("\nCreating thread...");
         string threadId = await agent.CreateThreadAsync();

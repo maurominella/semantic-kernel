@@ -47,20 +47,20 @@ internal class Program
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {Env.GetString("AZURE_OPENAI_ENDPOINT")}\n" +
         $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")}");
 
-        // Create the Azure Chat Completion object, e.g. the pointer to Azure OpenAI
+        // Create the kernel builder with the pointer to Azure OpenAI
         var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
             deploymentName: Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
             endpoint: Env.GetString("AZURE_OPENAI_ENDPOINT"),
             apiKey: Env.GetString("AZURE_OPENAI_API_KEY")
         );
 
-        // Build the kernel, that already integrates the AzureOpenAIChatCompletion object
-        Kernel kernel = builder.Build();
-
-        // Add enterprise components
+        // Add enterprise loggin components
         builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
 
-        // Add a plugin (the LightsPlugin class is defined below)
+        // Build the kernel from the builder that already contains ChatCompletionService + Logging services
+        Kernel kernel = builder.Build();
+
+        // Add a plugin (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
         kernel.Plugins.AddFromType<LightsPlugin>("Lights");
 
         // Enable planning
@@ -69,9 +69,8 @@ internal class Program
             FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
         };
 
-
         // Create the OpenAI Assistant Agent
-        Console.WriteLine("\nDefining agent...");
+        Console.WriteLine("\nDefining Assistant Agent...");
         string agent_name = "agent_name";
         string instructions = "you are a clever agent";
 
@@ -93,7 +92,7 @@ internal class Program
                 kernel: kernel
                 );
 
-        Console.WriteLine("...agent is ready.");
+        Console.WriteLine("...Assistant Agent is ready.");
 
         Console.WriteLine("\nCreating thread...");
         string threadId = await agent.CreateThreadAsync();

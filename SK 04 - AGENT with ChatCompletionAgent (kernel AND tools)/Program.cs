@@ -10,6 +10,7 @@ using Microsoft.SemanticKernel.Connectors.OpenAI;
 using DotNetEnv;
 using MyApp.Plugins;
 using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
 string projectRoot;
 
@@ -43,54 +44,49 @@ var apiKey = Env.GetString("AZURE_OPENAI_API_KEY");
 
 Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {endpoint}\nAZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {modelId}");
 
-// Create the Azure Chat Completion object, e.g. the pointer to Azure OpenAI
+// Create the kernel builder with the pointer to Azure OpenAI
 var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(modelId, endpoint, apiKey);
 
-// Add enterprise components
+// Use the kernel builder to add enterprise components (for logging, in this case)
 builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
 
 // Build the kernel
 Kernel kernel = builder.Build();
 
-// Extract ChatCompletionService from the kernel
-var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
-
-// Add a plugin (the LightsPlugin class is defined below)
+// Add a plugin (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
 kernel.Plugins.AddFromType<LightsPlugin>("Lights");
 
 // Enable planning
-OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
+// if "pure" OpenAI, please use OpenAIPromptExecutionSettings
+// in Python we have AzureChatPromptExecutionSettings
+var azureOpenAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
 {
     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
 };
 
-// Create a history store the conversation
-var history = new ChatHistory();
-
-
 string agent_name = "agent_name";
 string instructions = "you are a clever agent";
 
-Console.WriteLine("\nDefining agent...");
+Console.WriteLine("\nDefining completion Agent...");
 
 #pragma warning disable SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-ChatCompletionAgent agent =
-    new()
+var agent = new ChatCompletionAgent
+{
+    Name = agent_name,
+    Instructions = instructions,
+    Kernel = kernel,
+    Arguments = new KernelArguments(azureOpenAIPromptExecutionSettings)
+    // optional
     {
-        Name = agent_name,
-        Instructions = instructions,
-        Kernel = kernel,
-        Arguments =
-            new KernelArguments(openAIPromptExecutionSettings)
-            {
-                { "repository", "microsoft/semantic-kernel" }
-            }
-    };
+        { "repository", "microsoft/semantic-kernel" }
+    }
+};
 #pragma warning restore SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
+Console.WriteLine("...completion Agent is ready.");
 
-Console.WriteLine("...agent is ready.");
-
+// Create a history store the conversation
+var history = new ChatHistory();
 
 // Initiate a back-and-forth chat
 string? userInput;

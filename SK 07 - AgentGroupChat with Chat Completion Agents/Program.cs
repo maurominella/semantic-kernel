@@ -1,6 +1,9 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
 using LLMSettings;
+using LLMClipboardAccess;
+using LLMLights;
+
 using Microsoft.SemanticKernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -8,7 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.Agents.Chat;
 using Microsoft.SemanticKernel.ChatCompletion;
-
+using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
 internal class Program
 {
@@ -22,53 +25,115 @@ internal class Program
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {settings.AzureOpenAI.Endpoint}\n" +
         $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {settings.AzureOpenAI.ChatModelDeployment}");
 
-        // Create the Azure Chat Completion object, e.g. the pointer to Azure OpenAI
+        // Create the kernel builder with the pointer to the chat completion service of Azure OpenAI
         var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
             deploymentName: settings.AzureOpenAI.ChatModelDeployment,
             endpoint: settings.AzureOpenAI.Endpoint,
             apiKey: settings.AzureOpenAI.ApiKey
         );
 
-        // Build the kernel, that already integrates the AzureOpenAIChatCompletion object
+        // Add enterprise logging components
+        builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.None));
+
+        // Build the kernel from the builder that already contains ChatCompletionService + Logging services
         Kernel kernel = builder.Build();
 
-        // Add enterprise logging components
-        builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
+        // Clone the kernel, then add tools to the new one
+        Kernel toolKernel = kernel.Clone();
+        toolKernel.Plugins.AddFromType<ClipboardAccess>("Clipboard");
+        // Add a plugin (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
+        toolKernel.Plugins.AddFromType<LightsPlugin>("Lights");
 
-        // Create the three agents
-        var codevalidator_agent = CreateAgent(agent_name: "CodeValidator", kernel: kernel);
-        var juniordeveloper_agent = CreateAgent(agent_name: "JuniorDeveloper", kernel: kernel);
-        var seniordeveloper_agent = CreateAgent(agent_name: "SeniorDeveloper", kernel: kernel);
-
-
-        var chat = new AgentGroupChat(codevalidator_agent, juniordeveloper_agent, seniordeveloper_agent)
+        var azureOpenAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
         {
-            ExecutionSettings = new()
-            {
-                TerminationStrategy = new KernelFunctionTerminationStrategy(function: terminate_function(), kernel: kernel)
-                {
-                    Agents = [codevalidator_agent],
-                    ResultParser = (result) => result.GetValue<string>()?.Contains("yes", StringComparison.OrdinalIgnoreCase) ?? false,
-                    HistoryVariableName = "history",
-                    MaximumIterations = 10
-                },
-
-                SelectionStrategy = new KernelFunctionSelectionStrategy(function: selection_function("CodeValidator", "JuniorDeveloper", "SeniorDeveloper"), kernel: kernel)
-                {
-                    //AgentsVariableName = "agents",
-                    HistoryVariableName = "history"
-                }
-            }
+            FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
         };
 
-        var prompt = "Please write a function that takes a string as input and returns the number of words in that string.";
-        chat.AddChatMessage(new ChatMessageContent(AuthorRole.User, prompt));
-        await foreach (var content in chat.InvokeAsync())
+        var kernelArguments = new KernelArguments(azureOpenAIPromptExecutionSettings);
+
+
+        // Create the Chat Completion Agent(s)
+        var reviewer_agent = CreateChatCompletionAgent(agent_name: "Reviewer", kernel: toolKernel, kernelArguments: kernelArguments); // with toolKernel
+
+        Console.WriteLine("First, we'll testing just the single Reviewer Agent, until you enter <exit>");
+        await ChatWithAgentAsync(chatCompletionAgent: reviewer_agent, agentGroupChat: null);
+
+        // Create Agent(s)
+        var writer_agent = CreateChatCompletionAgent(agent_name: "Writer", kernel: kernel); // with simple kernel
+
+        // "Termination" kernel function that responds "yes" if the last message is satisfactory
+        const string TerminationToken = "yes";
+        KernelFunction terminationFunction =
+            AgentGroupChat.CreatePromptFunctionForStrategy(
+                $$$"""
+                Examine the RESPONSE and determine whether the content has been deemed satisfactory.
+                If content is satisfactory, respond with a single word without explanation: {{{TerminationToken}}}.
+                If specific suggestions are being provided, it is not satisfactory.
+                If no correction is suggested, it is satisfactory.
+
+                RESPONSE:
+                {{$lastmessage}}
+                """,
+
+                safeParameterNames: "lastmessage");
+
+
+        // "Selection" kernel function that receives the last message and responds the name of the next participant
+        KernelFunction selectionFunction = AgentGroupChat.CreatePromptFunctionForStrategy(
+            $$$"""
+            Examine the provided RESPONSE and choose the next participant.
+            State only the name of the chosen participant without explanation.
+            Never choose the participant named in the RESPONSE.
+
+            Choose only from these participants:
+            - {{{reviewer_agent.Name}}}
+            - {{{writer_agent.Name}}}
+
+            Always follow these rules when choosing the next participant:
+            - If RESPONSE is user input, it is {{{reviewer_agent.Name}}}'s turn.
+            - If RESPONSE is by {{{reviewer_agent.Name}}}, it is {{{writer_agent.Name}}}'s turn.
+            - If RESPONSE is by {{{writer_agent.Name}}}, it is {{{reviewer_agent.Name}}}'s turn.
+
+            RESPONSE:
+            {{$lastmessage}}
+            """,
+
+            safeParameterNames: "lastmessage"
+        );
+
+        // history reducer that extracts the last message from the history
+        var historyReducer = new ChatHistoryTruncationReducer(targetCount: 1);
+
+        // create the Group Chat Agent
+        var groupChatAgent = new AgentGroupChat(reviewer_agent, writer_agent)
         {
-            Console.WriteLine();
-            Console.WriteLine($"# {content.Role} - {content.AuthorName ?? "*"}: '{content.Content}'");
-            Console.WriteLine();
-        }
+            ExecutionSettings = new AgentGroupChatSettings
+            {
+                TerminationStrategy = new KernelFunctionTerminationStrategy(function: terminationFunction, kernel: kernel)
+                {
+                    Agents = [reviewer_agent], // Only evaluate for editor's response
+                    HistoryReducer = historyReducer, // Save tokens by only including the final response
+                    HistoryVariableName = "lastmessage", // The prompt variable name for the history argument.
+                    // Customer result parser to determine if the response is "yes":
+                    ResultParser = (result) => result.GetValue<string>()?.Contains(TerminationToken, StringComparison.OrdinalIgnoreCase) ?? false,
+                    MaximumIterations = 12, // Limit total number of turns
+                },
+
+                SelectionStrategy = new KernelFunctionSelectionStrategy(function: selectionFunction, kernel: kernel)
+                {
+                    InitialAgent = reviewer_agent, // Always start with the editor agent.
+                    HistoryReducer = historyReducer, // Save tokens by only including the final response
+                    HistoryVariableName = "lastmessage", // The prompt variable name for the history argument.
+
+                    // Returns the entire result value as a string
+                    // "nullish coalescing" (??) operator returns the left value if not null/undefined; otherwise it returns the value on the right
+                    ResultParser = (result) => result.GetValue<string>() ?? reviewer_agent.Name
+                }
+            }
+
+        };
+
+        await ChatWithAgentAsync(chatCompletionAgent: null, agentGroupChat: groupChatAgent);
 
     }
 
@@ -80,49 +145,67 @@ internal class Program
     }
 
     // Helper function to create an agent
-    private static ChatCompletionAgent CreateAgent(string agent_name, Kernel kernel)
+    private static ChatCompletionAgent CreateChatCompletionAgent(string agent_name, Kernel kernel, KernelArguments? kernelArguments = null)
     {
         return new ChatCompletionAgent
         {
             Name = agent_name,
             Instructions = ReadAgentInstructions(agent_name),
-            Kernel = kernel
+            Kernel = kernel,
+            Arguments = kernelArguments ?? new KernelArguments() // Providing a default value if kernelArguments is null
         };
     }
 
-    private static KernelFunction terminate_function()
+    private static async Task ChatWithAgentAsync(ChatCompletionAgent? chatCompletionAgent = null, AgentGroupChat? agentGroupChat = null)
     {
-        return KernelFunctionFactory.CreateFromPrompt(
-            $$$"""
-            Determine if the code has been approved. If so, respond with a single word: yes.
+        object agent;
 
-            History:
-            {{$history}}
-            """
-        );
-    }
+        if (chatCompletionAgent == null)
+        {
+            agent = (AgentGroupChat)agentGroupChat;
+        }
+        else
+        {
+            agent = (ChatCompletionAgent)chatCompletionAgent;
+        }
+        ;
 
-    private static KernelFunction selection_function(string codevalidator_agent_name, string juniordeveloper_agent_name, string seniordeveloper_agent_name)
-    {
-        return KernelFunctionFactory.CreateFromPrompt(
-            $$$"""
-            Your job is to determine which agent takes the next turn in a conversation.
-            State only the name of the participant to take the next turn.
-            Choose only from these participants:
-            - {{{codevalidator_agent_name}}}.
-            - {{{juniordeveloper_agent_name}}}.
-            - {{{seniordeveloper_agent_name}}}.
 
-            Follow these rules:
-            1) After the user input, it is {{{juniordeveloper_agent_name}}} turn.
-            2) After {{{juniordeveloper_agent_name}}}, it's {{{codevalidator_agent_name}}}'s turn.
-            3) if the score provided by {{{codevalidator_agent_name}}} is less than 8, it's the {{{seniordeveloper_agent_name}}}'s turn.
-            4) After {{{seniordeveloper_agent_name}}} replies, it's {{{codevalidator_agent_name}}}'s turn to validate the code.
-            5) Repeat step 3 and 4 until the code is approved.
+        // Create a history store the conversation
+        var history = new ChatHistory();
 
-            History:
-            {{$history}}
-            """
-        );
+        // Initiate a back-and-forth chat ===with the Reviewer Agent only (NO GROUP CHAT YET!)===
+        string? userInput;
+        do
+        {
+            // Collect user input
+            Console.Write("User > ");
+
+            userInput = Console.ReadLine();
+
+            // Check if userInput is not null before adding it to the chat history
+            if (userInput != null)
+            {
+                if (agent is ChatCompletionAgent chatAgent)
+                {
+                    history.AddUserMessage(userInput);
+                    await foreach (ChatMessageContent response in chatAgent.InvokeAsync(history))
+                    {
+                        Console.WriteLine($"{response.Content}");
+                        // Add the message from the agent to the chat history
+                        history.AddMessage(response.Role, response.Content ?? string.Empty);
+                    }
+                }
+                else if (agent is AgentGroupChat groupAgent)
+                {
+                    groupAgent.AddChatMessage(new ChatMessageContent(AuthorRole.User, userInput));
+                    await foreach (ChatMessageContent response in groupAgent.InvokeAsync())
+                    {
+                        // Add the message from the agent to the chat history
+                        Console.WriteLine($"# {response.Role} - {response.AuthorName ?? "*"}: '{response.Content}'");
+                    }
+                }
+            }
+        } while (!userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
     }
 }

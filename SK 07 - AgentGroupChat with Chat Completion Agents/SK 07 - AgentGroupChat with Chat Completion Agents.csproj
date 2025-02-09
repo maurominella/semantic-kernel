@@ -6,7 +6,7 @@
     <RootNamespace>SK_07___AgentGroupChat_with_Chat_Completion_Agents</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <NoWarn>$(NoWarn);SKEXP0110;SKEXP0001</NoWarn>
+    <NoWarn>$(NoWarn);SKEXP0110;SKEXP0001;CS8603;CS8602;CS8600</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +29,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="agents/SeniorDeveloper.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="agents/Writer.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="agents/Reviewer.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
