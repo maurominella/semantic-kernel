@@ -1,14 +1,21 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
 // See https://aka.ms/new-console-template for more information
-// Import packages
+
+// this sample implements the OpenAI ChatCompletion object (instance of IChatCompletionService) 
+// that we use to call GetChatMessageContentAsync
+
+// Base sample: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-chat-agent?pivots=programming-language-csharp
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
+
 using DotNetEnv;
-using MyApp.Plugins;
+using AIPlugins;
 
 string projectRoot;
 
@@ -69,6 +76,7 @@ var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 // Initiate a back-and-forth chat
 string? userInput;
 do
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
 {
     // Collect user input
     Console.Write("User > ");
@@ -92,5 +100,6 @@ do
         history.AddMessage(result.Role, result.Content ?? string.Empty);
     }
 } while (!userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
 
 Console.WriteLine("Application ends");

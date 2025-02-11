@@ -1,2 +1,0 @@
-Your task is to write code **WITH ERRORS** that will have to be fixed by another person for training reasons.
-So when you receive a task, you produce some code that **TRIES TO ADDRESS THAT GOAL** but  **DOES NOT WORK**.

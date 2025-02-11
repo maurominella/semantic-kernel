@@ -4,13 +4,14 @@
 // Import packages
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
-using DotNetEnv;
-using MyApp.Plugins;
 using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
+
+using DotNetEnv;
+using AIPlugins;
 
 string projectRoot;
 
@@ -63,6 +64,11 @@ var azureOpenAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
 {
     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
 };
+var kernelArguments = new KernelArguments(azureOpenAIPromptExecutionSettings)
+// optional
+{
+    { "repository", "microsoft/semantic-kernel" }
+};
 
 string agent_name = "agent_name";
 string instructions = "you are a clever agent";
@@ -75,11 +81,7 @@ var agent = new ChatCompletionAgent
     Name = agent_name,
     Instructions = instructions,
     Kernel = kernel,
-    Arguments = new KernelArguments(azureOpenAIPromptExecutionSettings)
-    // optional
-    {
-        { "repository", "microsoft/semantic-kernel" }
-    }
+    Arguments = kernelArguments ?? new KernelArguments() // Provide a default value if kernelArguments is null
 };
 #pragma warning restore SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
@@ -91,6 +93,7 @@ var history = new ChatHistory();
 // Initiate a back-and-forth chat
 string? userInput;
 do
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
 {
     // Collect user input
     Console.Write("User > ");
@@ -100,7 +103,6 @@ do
     if (userInput != null)
     {
         history.AddUserMessage(userInput);
-
 
 #pragma warning disable SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
         await foreach (ChatMessageContent response in agent.InvokeAsync(history))
@@ -113,5 +115,6 @@ do
 
     }
 } while (!userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
 
 Console.WriteLine("Application ends");

@@ -4,15 +4,14 @@
 
 // Import packages: 
 // https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-assistant-code?pivots=programming-language-csharp
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
+
 using DotNetEnv;
 using MyApp.Plugins;
-using Microsoft.SemanticKernel.Agents.OpenAI;
 using Azure.Identity;
+
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Agents.OpenAI;
 
 #pragma warning disable SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
@@ -47,27 +46,16 @@ internal class Program
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {Env.GetString("AZURE_OPENAI_ENDPOINT")}\n" +
         $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")}");
 
-        // Create the kernel builder with the pointer to Azure OpenAI
-        var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
-            deploymentName: Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
-            endpoint: Env.GetString("AZURE_OPENAI_ENDPOINT"),
-            apiKey: Env.GetString("AZURE_OPENAI_API_KEY")
-        );
+        // Add enterprise logging components
+        // TBI
 
-        // Add enterprise loggin components
-        builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
+        // Build the EMPTY kernel
+        var kernel = new Kernel();
 
-        // Build the kernel from the builder that already contains ChatCompletionService + Logging services
-        Kernel kernel = builder.Build();
-
-        // Add a plugin (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
+        // Add a plugin to the kernel (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
         kernel.Plugins.AddFromType<LightsPlugin>("Lights");
 
-        // Enable planning
-        var openAIPromptExecutionSettings = new OpenAIPromptExecutionSettings()
-        {
-            FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
-        };
+        // Enabling planning with AzureOpenAIPromptExecutionSettings seems that is not needed here
 
         // Create the OpenAI Assistant Agent
         Console.WriteLine("\nDefining Assistant Agent...");
@@ -79,6 +67,7 @@ internal class Program
             credential: new AzureCliCredential(),
             endpoint: new Uri(Env.GetString("AZURE_OPENAI_ENDPOINT")));
 
+        // Create Open AI Assistant Agent
         var agent =
             await OpenAIAssistantAgent.CreateAsync(
                 clientProvider: clientProviderForAzure,
@@ -89,7 +78,7 @@ internal class Program
                     EnableCodeInterpreter = false,
                     EnableFileSearch = false
                 },
-                kernel: kernel
+                kernel: kernel // just with its plugin(s), no other serivices
                 );
 
         Console.WriteLine("...Assistant Agent is ready.");
@@ -123,7 +112,7 @@ internal class Program
 
                 try
                 {
-                    await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(threadId))
+                    await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(threadId: threadId))
                     {
                         // Display response.
                         Console.Write($"{response.Content}");

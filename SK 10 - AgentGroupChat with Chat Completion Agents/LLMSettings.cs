@@ -20,16 +20,15 @@ OPENAISETTINGS__APIVERSION  = "<openai-apiversion>"
 */
 
 
-#pragma warning disable CS8602 // Dereference of a possibly null reference.
-public class Settings
+public class AISettings
 {
     private readonly IConfigurationRoot _configRoot;
 
     private AzureOpenAISettings _azureOpenAI;
-    public AzureOpenAISettings AzureOpenAI => this._azureOpenAI ??= this.GetSettings<Settings.AzureOpenAISettings>();
+    public AzureOpenAISettings AzureOpenAI => this._azureOpenAI ??= this.GetSettings<AISettings.AzureOpenAISettings>();
 
     private OpenAISettings _openAI;
-    public OpenAISettings OpenAI => this._openAI ??= this.GetSettings<Settings.OpenAISettings>();
+    public OpenAISettings OpenAI => this._openAI ??= this.GetSettings<AISettings.OpenAISettings>();
 
     public class AzureOpenAISettings
     {
@@ -56,7 +55,9 @@ public class Settings
         return section.Get<TSettings>()!;
     }
 
-    public Settings()
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
+    public AISettings()
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     {
         // Load environment variables from .env file
         Env.Load(this.EnvFilePath());
@@ -128,4 +129,3 @@ public class Settings
         Console.WriteLine($"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {this._configRoot["AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"]}");
     }
 }
-#pragma warning restore CS8602 // Dereference of a possibly null reference.

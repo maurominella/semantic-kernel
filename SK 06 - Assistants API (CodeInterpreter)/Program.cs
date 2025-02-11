@@ -2,14 +2,10 @@
 
 // See https://aka.ms/new-console-template for more information
 
-// Import packages: 
+// Import packages as shown with the following sample: 
 // https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-assistant-code?pivots=programming-language-csharp
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
-using MyApp.Plugins;
 using AgentsSample;
 using Microsoft.SemanticKernel.Agents.OpenAI;
 using Azure.Identity;
@@ -29,27 +25,11 @@ internal class Program
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {settings.AzureOpenAI.Endpoint}\n" +
         $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {settings.AzureOpenAI.ChatModelDeployment}");
 
-        // Create the kernel builder with the pointer to Azure OpenAI
-        var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
-            deploymentName: settings.AzureOpenAI.ChatModelDeployment,
-            endpoint: settings.AzureOpenAI.Endpoint,
-            apiKey: settings.AzureOpenAI.ApiKey
-        );
-
         // Build the kernel from the builder that already contains ChatCompletionService + Logging services
-        Kernel kernel = builder.Build();
+        var kernel = new Kernel(); // builder.Build();
 
         // Add enterprise logging components
-        builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
-
-        // Add a plugin (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
-        kernel.Plugins.AddFromType<LightsPlugin>("Lights");
-
-        // Enable planning
-        var azureOpenAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
-        {
-            FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
-        };
+        // TBI
 
         // OpenAIClientProvider will be used for the Agent Definition as well as file-upload
         var clientProviderForAzure = OpenAIClientProvider.ForAzureOpenAI(
@@ -68,7 +48,6 @@ internal class Program
         OpenAIFile fileDataCountryList = await fileClient.UploadFileAsync("./data/PopulationByCountry.csv", FileUploadPurpose.Assistants);
         Console.WriteLine("...files were successfully uploaded.");
 
-
         // Create the OpenAI Assistant Agent
         Console.WriteLine("\nDefining Assisant Agent...");
         string agent_name = "agent_name";
@@ -85,7 +64,7 @@ internal class Program
                     EnableFileSearch = false,
                     CodeInterpreterFileIds = [fileDataCountryList.Id, fileDataCountryDetail.Id]
                 },
-                kernel: kernel
+                kernel: kernel // empty kernel, with no associated plugins nor services
                 );
         Console.WriteLine("...Assistant Agent is ready.");
 

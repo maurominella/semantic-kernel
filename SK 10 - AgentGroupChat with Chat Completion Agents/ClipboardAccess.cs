@@ -17,7 +17,6 @@ public class ClipboardAccess
             return;
         }
 
-#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
         using Process clipProcess = Process.Start(
             new ProcessStartInfo
             {
@@ -25,11 +24,8 @@ public class ClipboardAccess
                 RedirectStandardInput = true,
                 UseShellExecute = false,
             });
-#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
 
-#pragma warning disable CS8602 // Dereference of a possibly null reference.
         clipProcess.StandardInput.Write(content);
-#pragma warning restore CS8602 // Dereference of a possibly null reference.
         clipProcess.StandardInput.Close();
     }
 }

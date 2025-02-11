@@ -4,7 +4,7 @@ using System.ComponentModel;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel;
 
-namespace MyApp.Plugins;
+namespace AIPlugins;
 
 public class LightsPlugin
 {

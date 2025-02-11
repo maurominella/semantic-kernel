@@ -1,9 +1,5 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
-using LLMSettings;
-using LLMClipboardAccess;
-using LLMLights;
-
 using Microsoft.SemanticKernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -13,6 +9,10 @@ using Microsoft.SemanticKernel.Agents.Chat;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
+using LLMSettings;
+using LLMClipboardAccess;
+using LLMLights;
+
 internal class Program
 {
     private static async Task Main(string[] args)
@@ -20,7 +20,7 @@ internal class Program
         Console.WriteLine("Application starts");
 
         // Load configuration from environment variables or user secrets.
-        var settings = new Settings();
+        var settings = new AISettings();
 
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {settings.AzureOpenAI.Endpoint}\n" +
         $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {settings.AzureOpenAI.ChatModelDeployment}");
@@ -40,6 +40,7 @@ internal class Program
 
         // Clone the kernel, then add tools to the new one
         Kernel toolKernel = kernel.Clone();
+        // Add a plugin (the ClipboardAccess class is defined in its dedicated file LightsPlugin.cs)
         toolKernel.Plugins.AddFromType<ClipboardAccess>("Clipboard");
         // Add a plugin (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
         toolKernel.Plugins.AddFromType<LightsPlugin>("Lights");
@@ -48,18 +49,18 @@ internal class Program
         {
             FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
         };
-
         var kernelArguments = new KernelArguments(azureOpenAIPromptExecutionSettings);
 
 
         // Create the Chat Completion Agent(s)
         var reviewer_agent = CreateChatCompletionAgent(agent_name: "Reviewer", kernel: toolKernel, kernelArguments: kernelArguments); // with toolKernel
-
-        Console.WriteLine("First, we'll testing just the single Reviewer Agent, until you enter <exit>");
+        Console.WriteLine("\nFirst, we'll test just the single Agent \"Reviewer\", until you enter <exit>");
         await ChatWithAgentAsync(chatCompletionAgent: reviewer_agent, agentGroupChat: null);
 
         // Create Agent(s)
         var writer_agent = CreateChatCompletionAgent(agent_name: "Writer", kernel: kernel); // with simple kernel
+        Console.WriteLine("\nAs a second step, we'll test the single Agent (the Writer), until you enter <exit>");
+        await ChatWithAgentAsync(chatCompletionAgent: writer_agent, agentGroupChat: null);
 
         // "Termination" kernel function that responds "yes" if the last message is satisfactory
         const string TerminationToken = "yes";
@@ -133,6 +134,7 @@ internal class Program
 
         };
 
+        Console.WriteLine("\nAs a third and last step, we'll test the Agent Group Chat");
         await ChatWithAgentAsync(chatCompletionAgent: null, agentGroupChat: groupChatAgent);
 
     }
@@ -167,8 +169,7 @@ internal class Program
         else
         {
             agent = (ChatCompletionAgent)chatCompletionAgent;
-        }
-        ;
+        };
 
 
         // Create a history store the conversation
@@ -176,6 +177,8 @@ internal class Program
 
         // Initiate a back-and-forth chat ===with the Reviewer Agent only (NO GROUP CHAT YET!)===
         string? userInput;
+
+        bool exit_chat = false;
         do
         {
             // Collect user input
@@ -183,8 +186,10 @@ internal class Program
 
             userInput = Console.ReadLine();
 
+            exit_chat = userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase);
+
             // Check if userInput is not null before adding it to the chat history
-            if (userInput != null)
+            if (!exit_chat)
             {
                 if (agent is ChatCompletionAgent chatAgent)
                 {
@@ -204,8 +209,9 @@ internal class Program
                         // Add the message from the agent to the chat history
                         Console.WriteLine($"# {response.Role} - {response.AuthorName ?? "*"}: '{response.Content}'");
                     }
+                    exit_chat = groupAgent.IsComplete || exit_chat;
                 }
             }
-        } while (!userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
+        } while (!exit_chat);
     }
 }
