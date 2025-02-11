@@ -68,7 +68,7 @@ internal class Program
     // HELPER FUNCTIONS
 
 
-    // Read agent instructions from file
+    // Helper function to read agent instructions from file
     private static string ReadAgentInstructions(string agentName)
     {
         string filePath = Path.Combine("agents", $"{agentName}.txt");
@@ -76,19 +76,7 @@ internal class Program
     }
 
 
-    // Helper function to create an agent
-    private static ChatCompletionAgent CreateAgent(string name, string instructions, Kernel kernel)
-    {
-        return new ChatCompletionAgent
-        {
-            Name = name,
-            Instructions = instructions,
-            Kernel = kernel
-        };
-    }
-
-
-    // Helper function to create a Chat Completion Agent
+    // Helper function to create a Chat Completion agent
     private static ChatCompletionAgent CreateChatCompletionAgent(string agent_name, Kernel kernel, KernelArguments? kernelArguments = null)
     {
         return new ChatCompletionAgent
@@ -101,7 +89,7 @@ internal class Program
     }
 
 
-    // Helper function to create an Assistant Agent
+    // Helper function to create an Assistant agent
     private static async Task<OpenAIAssistantAgent> CreateAssistantAgentAsync(
         string agent_name, Kernel kernel, OpenAIClientProvider clientProvider, string deploymentName)
     {
@@ -123,6 +111,7 @@ internal class Program
     }
 
 
+    // Helper function to remove duplicates from a string list, when it's built by a streaming function
     private static List<string> RemoveDuplicates(List<string> fileIds)
     {
         // Using HashSet to remove duplicates
@@ -132,6 +121,8 @@ internal class Program
         return uniqueFileIds.ToList();
     }
 
+
+    // Helper function to automate DownloadFileContentAsync
     private static async Task DownloadResponseImageAsync(OpenAIFileClient client, List<string> fileIds)
     {
         if (fileIds.Count > 0)
@@ -143,6 +134,9 @@ internal class Program
             }
         }
     }
+
+
+    // Helper function to download content from a single file
     private static async Task DownloadFileContentAsync(OpenAIFileClient client, string fileId, bool launchViewer = false)
     {
         OpenAIFile fileInfo = client.GetFile(fileId);
@@ -173,6 +167,8 @@ internal class Program
         }
     }
 
+
+    // Single Chat for all kinds of agents
     private static async Task ChatWithAgentAsync(object agent, OpenAIFileClient? fileClient = null)
     {
         string? userInput;
