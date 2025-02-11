@@ -52,15 +52,15 @@ internal class Program
         var kernelArguments = new KernelArguments(azureOpenAIPromptExecutionSettings);
 
 
-        // Create the Chat Completion Agent(s)
-        var reviewer_agent = CreateChatCompletionAgent(agent_name: "Reviewer", kernel: toolKernel, kernelArguments: kernelArguments); // with toolKernel
+        // Create the Chat Completion Agent(s) - Reviewer, with toolKernel
+        var reviewer_agent = CreateChatCompletionAgent(agent_name: "Reviewer", kernel: toolKernel, kernelArguments: kernelArguments);
         Console.WriteLine("\nFirst, we'll test just the single Agent \"Reviewer\", until you enter <exit>");
-        await ChatWithAgentAsync(chatCompletionAgent: reviewer_agent, agentGroupChat: null);
+        await ChatWithAgentAsync(agent: reviewer_agent);
 
-        // Create Agent(s)
-        var writer_agent = CreateChatCompletionAgent(agent_name: "Writer", kernel: kernel); // with simple kernel
+        // Create the Chat Completion Agent(s) - Writer, with simple kernel
+        var writer_agent = CreateChatCompletionAgent(agent_name: "Writer", kernel: kernel);
         Console.WriteLine("\nAs a second step, we'll test the single Agent (the Writer), until you enter <exit>");
-        await ChatWithAgentAsync(chatCompletionAgent: writer_agent, agentGroupChat: null);
+        await ChatWithAgentAsync(agent: writer_agent);
 
         // "Termination" kernel function that responds "yes" if the last message is satisfactory
         const string TerminationToken = "yes";
@@ -135,9 +135,9 @@ internal class Program
         };
 
         Console.WriteLine("\nAs a third and last step, we'll test the Agent Group Chat");
-        await ChatWithAgentAsync(chatCompletionAgent: null, agentGroupChat: groupChatAgent);
-
+        await ChatWithAgentAsync(agent: groupChatAgent);
     }
+
 
     // Helper function to read agent instructions from file
     private static string ReadAgentInstructions(string agentName)
@@ -158,24 +158,12 @@ internal class Program
         };
     }
 
-    private static async Task ChatWithAgentAsync(ChatCompletionAgent? chatCompletionAgent = null, AgentGroupChat? agentGroupChat = null)
+    private static async Task ChatWithAgentAsync(object agent)
     {
-        object agent;
-
-        if (chatCompletionAgent == null)
-        {
-            agent = (AgentGroupChat)agentGroupChat;
-        }
-        else
-        {
-            agent = (ChatCompletionAgent)chatCompletionAgent;
-        };
-
-
         // Create a history store the conversation
         var history = new ChatHistory();
 
-        // Initiate a back-and-forth chat ===with the Reviewer Agent only (NO GROUP CHAT YET!)===
+        // Initiate the chat (either single-agent or group chat)
         string? userInput;
 
         bool exit_chat = false;
@@ -209,7 +197,7 @@ internal class Program
                         // Add the message from the agent to the chat history
                         Console.WriteLine($"# {response.Role} - {response.AuthorName ?? "*"}: '{response.Content}'");
                     }
-                    exit_chat = groupAgent.IsComplete || exit_chat;
+                    exit_chat = exit_chat || groupAgent.IsComplete;
                 }
             }
         } while (!exit_chat);

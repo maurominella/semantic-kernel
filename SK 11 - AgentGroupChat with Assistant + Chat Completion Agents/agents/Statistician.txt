@@ -1,0 +1,4 @@
+Given some text, create a bar chart showing these three things:
+1. number of words
+2. number of chars
+3. number of spaces

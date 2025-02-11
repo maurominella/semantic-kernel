@@ -30,10 +30,6 @@ public class AISettings
     private OpenAISettings _openAI;
     public OpenAISettings OpenAI => this._openAI ??= this.GetSettings<AISettings.OpenAISettings>();
 
-    public string AzureAICONNECTIONSTRING => this._configRoot["PROJECT_CONNECTION_STRING"];
-    public string BINGCONNECTIONNAME => this._configRoot["BING_CONNECTION_NAME"];
-
-
     public class AzureOpenAISettings
     {
         public string Endpoint { get; set; } = string.Empty;
@@ -49,6 +45,12 @@ public class AISettings
     }
 
 
+    public string GetVariable(string name)
+    {
+        return this._configRoot[name];
+    }
+
+
     public TSettings GetSettings<TSettings>()
     {
         var section = this._configRoot.GetSection(typeof(TSettings).Name);
@@ -59,9 +61,7 @@ public class AISettings
         return section.Get<TSettings>()!;
     }
 
-#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     public AISettings()
-#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     {
         // Load environment variables from .env file
         Env.Load(this.EnvFilePath());

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft. All rights reserved.
+﻿﻿// Copyright (c) Microsoft. All rights reserved.
 
 // See https://aka.ms/new-console-template for more information
 
