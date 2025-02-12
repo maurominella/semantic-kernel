@@ -16,6 +16,9 @@
     <None Include="agents/Statistician.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="agents/Reviewer.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <PackageReference Include="Azure.Identity" Version="1.13.2" />
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.1" />

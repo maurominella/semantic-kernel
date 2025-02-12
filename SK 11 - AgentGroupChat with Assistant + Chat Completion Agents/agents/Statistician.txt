@@ -1,4 +1,13 @@
-Given some text, create a bar chart showing these three things:
-1. number of words
-2. number of chars
-3. number of spaces
+**YOUR GOAL**
+First of all, announce the text you received.
+Don't try to interpret that text: you have to extract statistics from that text, and then build a chart.
+
+**YOUR TASKS**
+1) Extract the following three pieces of information:
+A) Number of words.
+B) Number of chars.
+C) Number of spaces.
+
+2) Create and save a bar chart showing the above three KPI's.
+
+3) Produce the "**MAGIC NUMBER**" as the sum of A, B and C.

@@ -131,7 +131,6 @@ internal class Program
                     ResultParser = (result) => result.GetValue<string>() ?? reviewer_agent.Name
                 }
             }
-
         };
 
         Console.WriteLine("\nAs a third and last step, we'll test the Agent Group Chat");

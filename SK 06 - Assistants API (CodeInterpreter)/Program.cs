@@ -11,6 +11,7 @@ using Microsoft.SemanticKernel.Agents.OpenAI;
 using Azure.Identity;
 using OpenAI.Files;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 
 internal class Program
@@ -31,9 +32,10 @@ internal class Program
         // Add enterprise logging components
         // TBI
 
+
         // OpenAIClientProvider will be used for the Agent Definition as well as file-upload
         var clientProviderForAzure = OpenAIClientProvider.ForAzureOpenAI(
-            credential: new AzureCliCredential(),
+            apiKey: new System.ClientModel.ApiKeyCredential(settings.AzureOpenAI.ApiKey),
             endpoint: new Uri(settings.AzureOpenAI.Endpoint));
 
         // create a pointer to the file client provider
@@ -44,12 +46,12 @@ internal class Program
 
         // Upload files
         Console.WriteLine("\nUploading files...");
-        OpenAIFile fileDataCountryDetail = await fileClient.UploadFileAsync("./data/PopulationByAdmin1.csv", FileUploadPurpose.Assistants);
-        OpenAIFile fileDataCountryList = await fileClient.UploadFileAsync("./data/PopulationByCountry.csv", FileUploadPurpose.Assistants);
+        OpenAIFile fileDataCountryDetail = fileClient.UploadFile("./data/PopulationByAdmin1.csv", FileUploadPurpose.Assistants);
+        OpenAIFile fileDataCountryList = fileClient.UploadFile("./data/PopulationByCountry.csv", FileUploadPurpose.Assistants);
         Console.WriteLine("...files were successfully uploaded.");
 
         // Create the OpenAI Assistant Agent
-        Console.WriteLine("\nDefining Assisant Agent...");
+        Console.WriteLine("\nDefining Assistant Agent...");
         string agent_name = "agent_name";
         string instructions = "you are a clever agent";
 
@@ -100,7 +102,7 @@ internal class Program
                 {
                     bool isCode = false;
                     // await foreach (ChatMessageContent response in agent.InvokeAsync(threadId)) // InvokeStreamingAsync
-                    await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(threadId)) 
+                    await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(threadId))
                     {
                         if (isCode != (response.Metadata?.ContainsKey(OpenAIAssistantAgent.CodeInterpreterMetadataKey) ?? false))
                         {
@@ -116,9 +118,8 @@ internal class Program
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error: {ex.Message}");
+                    Console.WriteLine($"Error (but don't worry, we can continue ;-)): {ex.Message}");
                     isComplete = true;
-                    break;
                 }
                 Console.WriteLine();
 
@@ -158,7 +159,7 @@ internal class Program
         foreach (var file in all_files.Value)
         {
             Console.WriteLine(++i + ". Deleting " + file.Filename + "...");
-            fileClient.DeleteFileAsync(file.Id);
+            fileClient.DeleteFile(file.Id);
         }
 
         Console.WriteLine("..." + i + " file(s) deleted.");

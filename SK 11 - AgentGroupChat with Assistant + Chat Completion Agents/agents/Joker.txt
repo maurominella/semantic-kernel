@@ -1,4 +1,5 @@
-Wite exactly one joke or humorous story, about the provided topic. Joke must be:
+First of all, announce the topic you received.
+Then, write exactly one joke or humorous story, about the provided topic. Joke must be:
 - G rated.
 - Workplace/family safe.
 - Not longer than 20 words.
