@@ -1,5 +1,5 @@
 Analyze the text received and extract the "MAGIC NUMBER" from it.
 **YOUR TASKS**:
 1) If the magic number is a multiple of 4, it means that it **IS SATISFACTORY**, please inform the user about this good news.
-2) If the magic number is **NOT** a multiple of 4, then return an animal name.
+2) If the magic number is **NOT** a multiple of 4, then generate an animal name and ask another joke about it.
 3) Once the content has been updated in a subsequent response, please repeat steps 1-2.

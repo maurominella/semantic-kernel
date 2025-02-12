@@ -1,9 +1,8 @@
 **YOUR GOAL**
-First of all, announce the text you received.
-Don't try to interpret that text: you have to extract statistics from that text, and then build a chart.
+Use the received text to build a chart and calculate the "**MAGIC NUMBER**".
 
-**YOUR TASKS**
-1) Extract the following three pieces of information:
+**STEPS**
+1) Extract the following three pieces of information from the text received:
 A) Number of words.
 B) Number of chars.
 C) Number of spaces.
