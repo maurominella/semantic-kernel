@@ -192,9 +192,11 @@ internal class Program
                 {
                     groupAgent.AddChatMessage(new ChatMessageContent(AuthorRole.User, userInput));
                     await foreach (ChatMessageContent response in groupAgent.InvokeAsync())
+                    //await foreach (StreamingChatMessageContent response in groupAgent.InvokeStreamingAsync())
                     {
                         // Add the message from the agent to the chat history
-                        Console.WriteLine($"# {response.Role} - {response.AuthorName ?? "*"}: '{response.Content}'");
+                        Console.WriteLine($"\n#### >>> {response.Role} - {response.AuthorName ?? "*"}:\n'{response.Content}'");
+                        //Console.Write(response.Content);
                     }
                     exit_chat = exit_chat || groupAgent.IsComplete;
                 }
