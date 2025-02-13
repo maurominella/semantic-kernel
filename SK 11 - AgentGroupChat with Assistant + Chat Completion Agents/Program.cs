@@ -10,6 +10,7 @@ using Microsoft.SemanticKernel.Agents.OpenAI;
 using OpenAI.Files;
 using System.Diagnostics;
 using Microsoft.SemanticKernel.Agents.Chat;
+using Azure;
 
 // Copyright (c) Microsoft. All rights reserved.
 
@@ -82,7 +83,8 @@ internal class Program
                 Examine the RESPONSE and determine whether the content has been deemed satisfactory.
                 If content is satisfactory, respond with a single word without explanation: {{{TerminationToken}}}.
                 If specific suggestions are being provided, it is not satisfactory.
-                If no correction is suggested, it is satisfactory.
+                If it's made of a single word, it's not satisfactory.
+                If it has more than one word and no correction is suggested, it is satisfactory.
 
                 RESPONSE:
                 {{$lastmessage}}
@@ -103,7 +105,7 @@ internal class Program
                 - {{{reviewer_agent.Name}}}
 
                 Always follow these rules when choosing the next participant:
-                - If RESPONSE is user input, it is {{{joker_agent.Name}}}'s turn.
+                - If RESPONSE is user input, it is {{{reviewer_agent.Name}}}'s turn.
                 - If RESPONSE is by {{{joker_agent.Name}}}, it is {{{statistician_agent.Name}}}'s turn.
                 - If RESPONSE is by {{{statistician_agent.Name}}}, it is {{{reviewer_agent.Name}}}'s turn.
                 - If RESPONSE is by {{{reviewer_agent.Name}}}, it is {{{joker_agent.Name}}}'s turn.
@@ -135,7 +137,7 @@ internal class Program
 
                 SelectionStrategy = new KernelFunctionSelectionStrategy(function: selectionFunction, kernel: kernel)
                 {
-                    InitialAgent = joker_agent, // Always start with the editor agent.
+                    InitialAgent = reviewer_agent, // Always start with the editor agent.
                     HistoryReducer = historyReducer, // Save tokens by only including the final response
                     HistoryVariableName = "lastmessage", // The prompt variable name for the history argument.
 
@@ -370,14 +372,21 @@ internal class Program
                 }
                 else if (agent is AgentGroupChat groupAgent)
                 {
+                    var reviewer = "";
                     groupAgent.AddChatMessage(new ChatMessageContent(AuthorRole.User, userInput));
-                    //await foreach (StreamingChatMessageContent response in groupAgent.InvokeStreamingAsync())
-                    await foreach (ChatMessageContent response in groupAgent.InvokeAsync())
+                    await foreach (StreamingChatMessageContent response in groupAgent.InvokeStreamingAsync())
+                    //await foreach (ChatMessageContent response in groupAgent.InvokeAsync())
                     {
                         // Add the message from the agent to the chat history
-                        // Console.WriteLine($"# {response.Role} - {response.AuthorName ?? "*"}: '{response.Content}'");
+                        //Console.WriteLine($"# {response.Role} - {response.AuthorName ?? "*"}: '{response.Content}'");
+                        if (response.AuthorName != reviewer)
+                        {
+                            Console.WriteLine($"\n\n### New turn: {response.Role} - {response.AuthorName ?? "*"}:\n");
+                            reviewer = response.AuthorName;
+                        }
                         Console.Write(response.Content);
                     }
+                    Console.WriteLine();
                     exit_chat = exit_chat || groupAgent.IsComplete;
                 }
             }

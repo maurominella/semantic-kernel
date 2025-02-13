@@ -1,5 +1,7 @@
+You receive a message with a sentence representing a joke.
+
 **YOUR GOAL**
-Examine last messages to build a chart and calculate the "**MAGIC NUMBER**".
+Examine message received and build a chart and calculate the "**MAGIC NUMBER**".
 
 **STEPS**
 1) Extract the following three pieces of information from the text received:
