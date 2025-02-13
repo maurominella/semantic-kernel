@@ -12,6 +12,7 @@ using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using LLMSettings;
 using LLMClipboardAccess;
 using LLMLights;
+using Microsoft.SemanticKernel.Agents.OpenAI;
 
 internal class Program
 {
@@ -52,14 +53,15 @@ internal class Program
         var kernelArguments = new KernelArguments(azureOpenAIPromptExecutionSettings);
 
 
-        // Create the Chat Completion Agent(s) - Reviewer, with toolKernel
+        // Create the FIRST Chat Completion Agent(s) - Reviewer, with toolKernel
+        Console.WriteLine("\nFirst, we'll test just the single Agent \"Reviewer\" (a CHAT COMPLETION agent), until you enter <exit>");
         var reviewer_agent = CreateChatCompletionAgent(agent_name: "Reviewer", kernel: toolKernel, kernelArguments: kernelArguments);
-        Console.WriteLine("\nFirst, we'll test just the single Agent \"Reviewer\", until you enter <exit>");
         await ChatWithAgentAsync(agent: reviewer_agent);
 
-        // Create the Chat Completion Agent(s) - Writer, with simple kernel
+        // Create the SECOND OpeAI Assistant Completion Agent(s) - Writer, with simple kernel
+        Console.WriteLine("\nAs a second step, we'll test the single Agent (the Writer, an ASSISTANT agent), until you enter <exit>");
         var writer_agent = CreateChatCompletionAgent(agent_name: "Writer", kernel: kernel);
-        Console.WriteLine("\nAs a second step, we'll test the single Agent (the Writer), until you enter <exit>");
+
         await ChatWithAgentAsync(agent: writer_agent);
 
         // "Termination" kernel function that responds "yes" if the last message is satisfactory
@@ -155,6 +157,26 @@ internal class Program
             Kernel = kernel,
             Arguments = kernelArguments ?? new KernelArguments() // Providing a default value if kernelArguments is null
         };
+    }
+
+    // Helper function to create an Assistant agent
+    private static async Task<OpenAIAssistantAgent> CreateAssistantAgentAsync(
+        string agent_name, Kernel kernel, OpenAIClientProvider clientProvider, string deploymentName)
+    {
+        var assistantAgent =
+            await OpenAIAssistantAgent.CreateAsync(
+                clientProvider: clientProvider,
+                definition: new OpenAIAssistantDefinition(deploymentName)
+                {
+                    Name = agent_name,
+                    Instructions = ReadAgentInstructions(agent_name),
+                    EnableCodeInterpreter = true,
+                    EnableFileSearch = false
+                },
+                kernel: kernel // empty kernel, with no associated plugins nor services
+                );
+
+        return assistantAgent;
     }
 
     private static async Task ChatWithAgentAsync(object agent)

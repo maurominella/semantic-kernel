@@ -1,5 +1,5 @@
 **YOUR GOAL**
-Use the received text to build a chart and calculate the "**MAGIC NUMBER**".
+Examine last messages to build a chart and calculate the "**MAGIC NUMBER**".
 
 **STEPS**
 1) Extract the following three pieces of information from the text received:

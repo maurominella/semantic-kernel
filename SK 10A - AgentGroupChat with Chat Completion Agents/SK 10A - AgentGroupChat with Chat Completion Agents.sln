@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SK 10 - AgentGroupChat with Chat Completion Agents", "SK 10 - AgentGroupChat with Chat Completion Agents.csproj", "{061CA165-D995-42D7-33D2-D88A693792E3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SK 10A - AgentGroupChat with Chat Completion Agents", "SK 10A - AgentGroupChat with Chat Completion Agents.csproj", "{061CA165-D995-42D7-33D2-D88A693792E3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
