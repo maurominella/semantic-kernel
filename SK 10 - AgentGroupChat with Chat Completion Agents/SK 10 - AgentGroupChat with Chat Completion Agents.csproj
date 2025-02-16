@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
-    <RootNamespace>SK 10A - AgentGroupChat with Chat Completion Agents</RootNamespace>
+    <RootNamespace>SK 10 - AgentGroupChat with Chat Completion Agents</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);SKEXP0001;SKEXP0110;CS8600;CS8602;CS8603;CS8618</NoWarn>
