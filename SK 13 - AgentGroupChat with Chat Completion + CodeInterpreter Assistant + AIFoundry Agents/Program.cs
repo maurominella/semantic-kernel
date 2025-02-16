@@ -13,6 +13,9 @@ using OpenAI.Files;
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Azure.AI.Projects; // dotnet add package Azure.AI.Projects --prereleasedotnet
+using Azure.Identity;
+using Azure; // dotnet add package Azure.Identity
 
 // Copyright (c) Microsoft. All rights reserved.
 
@@ -23,15 +26,15 @@ internal class Program
         Console.WriteLine("Application starts");
         // Load configuration from environment variables or user secrets.
 
-        var settings = new AISettings();
-        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {settings.AzureOpenAI.Endpoint}\n" +
-        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {settings.AzureOpenAI.ChatModelDeployment}");
+        var aiSettings = new AISettings();
+        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {aiSettings.AzureOpenAI.Endpoint}\n" +
+        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {aiSettings.AzureOpenAI.ChatModelDeployment}");
 
         // Create the Azure Chat Completion object, e.g. the pointer to Azure OpenAI
         var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
-            deploymentName: settings.AzureOpenAI.ChatModelDeployment,
-            endpoint: settings.AzureOpenAI.Endpoint,
-            apiKey: settings.AzureOpenAI.ApiKey
+            deploymentName: aiSettings.AzureOpenAI.ChatModelDeployment,
+            endpoint: aiSettings.AzureOpenAI.Endpoint,
+            apiKey: aiSettings.AzureOpenAI.ApiKey
         );
 
         // Build the kernel, that already integrates the AzureOpenAIChatCompletion object
@@ -51,8 +54,8 @@ internal class Program
 
         // Step 1: OpenAIClientProvider is used for the Agent Definition as well as file-upload
         var clientProviderForAzure = OpenAIClientProvider.ForAzureOpenAI(
-            apiKey: new System.ClientModel.ApiKeyCredential(settings.AzureOpenAI.ApiKey),
-            endpoint: new Uri(settings.AzureOpenAI.Endpoint));
+            apiKey: new System.ClientModel.ApiKeyCredential(aiSettings.AzureOpenAI.ApiKey),
+            endpoint: new Uri(aiSettings.AzureOpenAI.Endpoint));
 
         // Step 2: Create a pointer to the file client provider, to both upload and download files
         OpenAIFileClient fileClient = clientProviderForAzure.Client.GetOpenAIFileClient();
@@ -62,13 +65,37 @@ internal class Program
         OpenAIAssistantAgent statistician_agent = await CreateAssistantAgentAsync(
             agent_name: "Statistician",
             kernel: kernel,
-            deploymentName: settings.AzureOpenAI.ChatModelDeployment,
+            deploymentName: aiSettings.AzureOpenAI.ChatModelDeployment,
             clientProvider: clientProviderForAzure);
 
-        //var statistician_agent = CreateChatCompletionAgent(agent_name: "Statistician", kernel: kernel);
 
         Console.WriteLine("\n\nNow, we'll test just the single \"Statistician\" (an ASSISTANT agent), until you enter <exit>");
         await ChatWithAgentAsync(agent: statistician_agent, fileClient: fileClient);
+
+
+        // Step 4: Create the AI Foundry Agent (which is also an OpenAIAssistantAgent)
+        var projectConnectionString = aiSettings.GetVariable("PROJECT_CONNECTION_STRING"); // .AzureAICONNECTIONSTRING;
+        var clientOptions = new AIProjectClientOptions();
+        var projectClient = new AIProjectClient(projectConnectionString, new DefaultAzureCredential(), clientOptions);
+
+        var bingConnection = await projectClient.GetConnectionsClient().GetConnectionAsync(aiSettings.GetVariable("BING_CONNECTION_NAME"));
+        var connectionId = bingConnection.Value.Id;
+        var connectionList = new ToolConnectionList
+        {
+            ConnectionList = { new ToolConnection(connectionId) }
+        };
+        var bingGroundingTool = new BingGroundingToolDefinition(connectionList);
+
+        AgentsClient agentsClient = projectClient.GetAgentsClient();
+        var all_ai_agents = agentsClient.GetAgents();
+
+        Response<Azure.AI.Projects.Agent> agentResponse = await agentsClient.CreateAgentAsync(
+            model: aiSettings.AzureOpenAI.ChatModelDeployment,
+            name: "my-assistant",
+            instructions: "You are a helpful assistant.",
+            tools: new List<ToolDefinition> { bingGroundingTool });
+
+        Azure.AI.Projects.Agent ai_agent = agentResponse.Value;
 
 
         // AGENT GROUP CHAT IN 5 STEPS

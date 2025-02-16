@@ -19,6 +19,7 @@
     <None Include="agents/Reviewer.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <PackageReference Include="Azure.AI.Projects" Version="1.0.0-beta.3" />
     <PackageReference Include="Azure.Identity" Version="1.13.2" />
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.1" />
