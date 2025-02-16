@@ -151,7 +151,7 @@ internal class Program
         };
 
         Console.WriteLine("\nAs final step, test the Agent Group Chat");
-        await ChatWithAgentAsync(agent: groupChatAgent);
+        await ChatWithAgentAsync(agent: groupChatAgent, fileClient: fileClient);
     }
 
 
@@ -329,6 +329,7 @@ internal class Program
                 else if (agent is AgentGroupChat groupAgent)
                 {
                     var author_name = ""; // used in the streaming to check when the author changes
+                    List<string> fileIds = [];
                     groupAgent.AddChatMessage(new ChatMessageContent(AuthorRole.User, userInput));
                     await foreach (StreamingChatMessageContent response in groupAgent.InvokeStreamingAsync())
                     //await foreach (ChatMessageContent response in groupAgent.InvokeAsync())
@@ -341,7 +342,17 @@ internal class Program
                             author_name = response.AuthorName;
                         }
                         Console.Write(response.Content);
+
+                        // Capture file IDs for downloading
+                        fileIds.AddRange(response.Items.OfType<StreamingFileReferenceContent>().Select(item => item.FileId));
                     }
+                    fileIds = RemoveDuplicates(fileIds);
+                    Console.WriteLine();
+
+                    // Download any images referenced in the response
+                    await DownloadResponseImageAsync(fileClient, fileIds);
+
+                    fileIds.Clear();
                     Console.WriteLine();
                     exit_chat = exit_chat || groupAgent.IsComplete;
                 }
