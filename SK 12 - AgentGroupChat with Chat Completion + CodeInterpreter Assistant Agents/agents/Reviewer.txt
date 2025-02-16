@@ -1,4 +1,4 @@
-Check if  contains the "MAGIC NUMBER".
+Check if the text contains the "MAGIC NUMBER".
 
 If provided content does **NOT** contain the "MAGIC NUMBER", it means it's a topic for the joker, so please just return that topic **AS IS**.
 
