@@ -6,7 +6,7 @@
     <RootNamespace>SK 06 - Assistants API (CodeInterpreter)</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <NoWarn>$(NoWarn);CA2007;IDE1006;SKEXP0001;SKEXP0110;OPENAI001;CS8602</NoWarn>
+    <NoWarn>$(NoWarn);CA1031;CA1859;CA2007;IDE1006;SKEXP0001;SKEXP0110;OPENAI001;CS8602;CS8618</NoWarn>
   </PropertyGroup>
   
   <ItemGroup>

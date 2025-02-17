@@ -59,7 +59,7 @@ internal class Program
 
         // Create the OpenAI Assistant Agent
         Console.WriteLine("\nDefining Assistant Agent...");
-        string agent_name = "agent_name";
+        string agent_name = "mauromi_assistant_agent_c#";
         string instructions = "you are a clever agent";
 
         // OpenAIClientProvider will be used for the Agent Definition as well as file-upload
@@ -102,7 +102,7 @@ internal class Program
                 {
                     continue;
                 }
-                if (userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrWhiteSpace(userInput) || userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
                 {
                     isComplete = true;
                     break;

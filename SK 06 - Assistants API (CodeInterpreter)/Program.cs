@@ -4,15 +4,12 @@
 
 // Import packages as shown with the following sample: 
 // https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-assistant-code?pivots=programming-language-csharp
+using System.Diagnostics;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using AgentsSample;
 using Microsoft.SemanticKernel.Agents.OpenAI;
-using Azure.Identity;
 using OpenAI.Files;
-using System.Diagnostics;
-using System.Threading.Tasks;
-
+using AgentsSample;
 
 internal class Program
 {
@@ -26,7 +23,7 @@ internal class Program
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {settings.AzureOpenAI.Endpoint}\n" +
         $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {settings.AzureOpenAI.ChatModelDeployment}");
 
-        // Build the kernel from the builder that already contains ChatCompletionService + Logging services
+        // Build the kernel WITHOUT using the builder since SK uses OpenAIClientProvider
         var kernel = new Kernel(); // builder.Build();
 
         // Add enterprise logging components
@@ -52,7 +49,7 @@ internal class Program
 
         // Create the OpenAI Assistant Agent
         Console.WriteLine("\nDefining Assistant Agent...");
-        string agent_name = "agent_name";
+        string agent_name = "mauromi_assistant_agent_c#";
         string instructions = "you are a clever agent";
 
         OpenAIAssistantAgent agent =
@@ -86,11 +83,7 @@ internal class Program
                 Console.Write("User > ");
                 // Collect user input
                 userInput = Console.ReadLine();
-                if (string.IsNullOrWhiteSpace(userInput))
-                {
-                    continue;
-                }
-                if (userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrWhiteSpace(userInput) || userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
                 {
                     isComplete = true;
                     break;
@@ -101,8 +94,8 @@ internal class Program
                 try
                 {
                     bool isCode = false;
-                    // await foreach (ChatMessageContent response in agent.InvokeAsync(threadId)) // InvokeStreamingAsync
-                    await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(threadId))
+                    await foreach (ChatMessageContent response in agent.InvokeAsync(threadId)) // InvokeStreamingAsync
+                    //await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(threadId))
                     {
                         if (isCode != (response.Metadata?.ContainsKey(OpenAIAssistantAgent.CodeInterpreterMetadataKey) ?? false))
                         {
@@ -113,7 +106,7 @@ internal class Program
                         Console.Write($"{response.Content}");
 
                         // Capture file IDs for downloading
-                        fileIds.AddRange(response.Items.OfType<StreamingFileReferenceContent>().Select(item => item.FileId));
+                        fileIds.AddRange(response.Items.OfType<FileReferenceContent>().Select(item => item.FileId));
                     }
                 }
                 catch (Exception ex)
@@ -121,6 +114,8 @@ internal class Program
                     Console.WriteLine($"Error (but don't worry, we can continue ;-)): {ex.Message}");
                     isComplete = true;
                 }
+
+                fileIds = RemoveDuplicates(fileIds);
                 Console.WriteLine();
 
                 // Download any files referenced in the response
@@ -164,6 +159,16 @@ internal class Program
 
         Console.WriteLine("..." + i + " file(s) deleted.");
 
+    }
+    // Helper function to remove duplicates from a string list, when it's built by a streaming function
+    private static List<string> RemoveDuplicates(List<string> fileIds)
+
+    {
+        // Using HashSet to remove duplicates
+        var uniqueFileIds = new HashSet<string>(fileIds);
+
+        // Converting HashSet back to List
+        return uniqueFileIds.ToList();
     }
 
     private static async Task DownloadResponseImageAsync(OpenAIFileClient client, ICollection<string> fileIds)

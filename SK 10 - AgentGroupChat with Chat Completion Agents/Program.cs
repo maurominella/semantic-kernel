@@ -195,7 +195,7 @@ internal class Program
 
             userInput = Console.ReadLine();
 
-            exit_chat = userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase);
+            exit_chat = (string.IsNullOrWhiteSpace(userInput) || userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
 
             // Check if userInput is not null before adding it to the chat history
             if (!exit_chat)

@@ -1,5 +1,7 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+// It's worth also to check "SK 07 - AI Foundry Agents with Semantic Kernel vs. AI Foundry SDK's.ipynb"
+
 using LLMSettings;
 using Microsoft.SemanticKernel;
 
@@ -17,7 +19,7 @@ using Azure.AI.Projects; // dotnet add package Azure.AI.Projects --prereleasedot
 using Azure.Identity;
 using Azure; // dotnet add package Azure.Identity
 
-// Copyright (c) Microsoft. All rights reserved.
+
 
 internal class Program
 {

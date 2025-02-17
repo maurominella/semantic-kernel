@@ -9,10 +9,13 @@ using Microsoft.SemanticKernel.Agents.Chat;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
+using OpenAI.Files;
+
 using LLMSettings;
 using LLMClipboardAccess;
 using LLMLights;
 using Microsoft.SemanticKernel.Agents.OpenAI;
+using System.Diagnostics;
 
 internal class Program
 {
@@ -60,12 +63,14 @@ internal class Program
 
         // Create the OpeAI Assistant Completion Agent(s) - Writer, with simple kernel
         Console.WriteLine("\nAs a second step, we'll test the single Agent (the Writer, an ASSISTANT agent), until you enter <exit>");
-        // var writer_agent = CreateChatCompletionAgent(agent_name: "Writer", kernel: kernel);
 
         // OpenAIClientProvider is used for the Agent Definition as well as file-upload
         var clientProviderForAzure = OpenAIClientProvider.ForAzureOpenAI(
             apiKey: new System.ClientModel.ApiKeyCredential(settings.AzureOpenAI.ApiKey),
             endpoint: new Uri(settings.AzureOpenAI.Endpoint));
+
+        // Step 2: Create a pointer to the file client provider, to both upload and download files
+        OpenAIFileClient fileClient = clientProviderForAzure.Client.GetOpenAIFileClient();
 
         OpenAIAssistantAgent writer_agent = await CreateAssistantAgentAsync(
             agent_name: "Writer",
@@ -73,7 +78,7 @@ internal class Program
             deploymentName: settings.AzureOpenAI.ChatModelDeployment,
             clientProvider: clientProviderForAzure);
 
-        await ChatWithAgentAsync(agent: writer_agent);
+        await ChatWithAgentAsync(agent: writer_agent, fileClient: fileClient);
 
         // "Termination" kernel function that responds "yes" if the last message is satisfactory
         const string TerminationToken = "yes";
@@ -190,29 +195,118 @@ internal class Program
         return assistantAgent;
     }
 
-    private static async Task ChatWithAgentAsync(object agent)
+    // Helper function to remove duplicates from a string list, when it's built by a streaming function
+    private static List<string> RemoveDuplicates(List<string> fileIds)
     {
-        // Create a history store the conversation
-        var history = new ChatHistory();
+        // Using HashSet to remove duplicates
+        var uniqueFileIds = new HashSet<string>(fileIds);
 
-        // Initiate the chat (either single-agent or group chat)
+        // Converting HashSet back to List
+        return uniqueFileIds.ToList();
+    }
+
+
+    // Helper function to automate DownloadFileContentAsync
+    private static async Task DownloadResponseImageAsync(OpenAIFileClient client, List<string> fileIds)
+    {
+        if (fileIds.Count > 0)
+        {
+            Console.WriteLine();
+            foreach (string fileId in fileIds)
+            {
+                await DownloadFileContentAsync(client, fileId, launchViewer: true);
+            }
+        }
+    }
+
+    // Helper function to download content from a single file
+    private static async Task DownloadFileContentAsync(OpenAIFileClient client, string fileId, bool launchViewer = false)
+    {
+        OpenAIFile fileInfo = client.GetFile(fileId);
+        if (fileInfo.Purpose == FilePurpose.AssistantsOutput)
+        {
+            string filePath =
+                Path.Combine(
+                    Path.GetTempPath(),
+                    Path.GetFileName(Path.ChangeExtension(fileInfo.Filename, ".png")));
+
+            if (!File.Exists(filePath))
+            {
+                BinaryData content = await client.DownloadFileAsync(fileId);
+                await using FileStream fileStream = new(filePath, FileMode.CreateNew);
+                await content.ToStream().CopyToAsync(fileStream);
+                Console.WriteLine($"File saved to: {filePath}.");
+            }
+
+            if (launchViewer)
+            {
+                Process.Start(
+                    new ProcessStartInfo
+                    {
+                        FileName = "cmd.exe",
+                        Arguments = $"/C start {filePath}"
+                    });
+            }
+        }
+    }
+
+    private static async Task ChatWithAgentAsync(object agent, OpenAIFileClient? fileClient = null)
+    {
         string? userInput;
-
         bool exit_chat = false;
+
         do
         {
-            // Collect user input
             Console.Write("User > ");
-
             userInput = Console.ReadLine();
 
-            exit_chat = userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase);
+            // Check if userInput is not null or EXIT
+            exit_chat = string.IsNullOrWhiteSpace(userInput) || userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase);
 
-            // Check if userInput is not null before adding it to the chat history
             if (!exit_chat)
             {
-                if (agent is ChatCompletionAgent chatAgent)
+                // check if it's an ASSISTANT agent
+                if (agent is OpenAIAssistantAgent assistantAgent)
                 {
+                    List<string> fileIds = [];
+                    string threadId = await assistantAgent.CreateThreadAsync();
+                    await assistantAgent.AddChatMessageAsync(threadId, new ChatMessageContent(AuthorRole.User, userInput));
+
+                    try
+                    {
+                        bool isCode = false;
+                        await foreach (StreamingChatMessageContent response in assistantAgent.InvokeStreamingAsync(threadId))
+                        {
+                            if (isCode != (response.Metadata?.ContainsKey(OpenAIAssistantAgent.CodeInterpreterMetadataKey) ?? false))
+                            {
+                                Console.WriteLine();
+                                isCode = !isCode;
+                            }
+                            // Display response.
+                            Console.Write($"{response.Content}");
+
+                            // Capture file IDs for downloading
+                            fileIds.AddRange(response.Items.OfType<StreamingFileReferenceContent>().Select(item => item.FileId));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error (but don't worry, we can continue ;-)): {ex.Message}");
+                    }
+
+                    fileIds = RemoveDuplicates(fileIds);
+                    Console.WriteLine();
+
+                    // Download any images referenced in the response
+                    await DownloadResponseImageAsync(fileClient, fileIds);
+
+                    fileIds.Clear();
+                }
+
+                // check if it's a CHAT COMPLETION agent
+                else if (agent is ChatCompletionAgent chatAgent)
+                {
+                    var history = new ChatHistory();
                     history.AddUserMessage(userInput);
                     await foreach (ChatMessageContent response in chatAgent.InvokeAsync(history))
                     {
@@ -221,19 +315,40 @@ internal class Program
                         history.AddMessage(response.Role, response.Content ?? string.Empty);
                     }
                 }
+
+                // check if it's a GROUP CHAT agent
                 else if (agent is AgentGroupChat groupAgent)
                 {
+                    var author_name = ""; // used in the streaming to check when the author changes
+                    List<string> fileIds = [];
                     groupAgent.AddChatMessage(new ChatMessageContent(AuthorRole.User, userInput));
-                    await foreach (ChatMessageContent response in groupAgent.InvokeAsync())
-                    //await foreach (StreamingChatMessageContent response in groupAgent.InvokeStreamingAsync())
+                    await foreach (StreamingChatMessageContent response in groupAgent.InvokeStreamingAsync())
+                    //await foreach (ChatMessageContent response in groupAgent.InvokeAsync())
                     {
                         // Add the message from the agent to the chat history
-                        Console.WriteLine($"\n#### >>> {response.Role} - {response.AuthorName ?? "*"}:\n'{response.Content}'");
-                        //Console.Write(response.Content);
+                        //Console.WriteLine($"# {response.Role} - {response.AuthorName ?? "*"}: '{response.Content}'");
+                        if (response.AuthorName != author_name)
+                        {
+                            Console.WriteLine($"\n\n### New turn: {response.Role} - {response.AuthorName ?? "*"}:\n");
+                            author_name = response.AuthorName;
+                        }
+                        Console.Write(response.Content);
+
+                        // Capture file IDs for downloading
+                        fileIds.AddRange(response.Items.OfType<StreamingFileReferenceContent>().Select(item => item.FileId));
                     }
+                    fileIds = RemoveDuplicates(fileIds);
+                    Console.WriteLine();
+
+                    // Download any images referenced in the response
+                    await DownloadResponseImageAsync(fileClient, fileIds);
+
+                    fileIds.Clear();
+                    Console.WriteLine();
                     exit_chat = exit_chat || groupAgent.IsComplete;
                 }
             }
         } while (!exit_chat);
     }
+
 }

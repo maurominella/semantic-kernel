@@ -7,15 +7,22 @@
 
 // Base sample: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-chat-agent?pivots=programming-language-csharp
 
-using Microsoft.Extensions.DependencyInjection;
+// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.2" />
+// dotnet add package Microsoft.Extensions.Logging.Console --> <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.2" />
 using Microsoft.Extensions.Logging;
 
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.37.0" />
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
+// dotnet add package DotNetEnv --> <PackageReference Include="DotNetEnv" Version="3.1.1" />
 using DotNetEnv;
+
 using AIPlugins;
+
+// dotnet add package Microsoft.Extensions.DependencyInjection --> <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.2" />
+using Microsoft.Extensions.DependencyInjection;
 
 string projectRoot;
 
@@ -99,7 +106,7 @@ do
         // Add the message from the agent to the chat history
         history.AddMessage(result.Role, result.Content ?? string.Empty);
     }
-} while (!userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
+} while (!string.IsNullOrWhiteSpace(userInput) && !userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
 Console.WriteLine("Application ends");
