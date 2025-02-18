@@ -230,6 +230,12 @@ internal class Program
     }
 
 
+    // Helper function to create an AI Foundry agent
+    private static async Task<OpenAIAssistantAgent> CreateAIFoundryAgentAsync()
+    {
+
+    }
+
     // Helper function to remove duplicates from a string list, when it's built by a streaming function
     private static List<string> RemoveDuplicates(List<string> fileIds)
     {

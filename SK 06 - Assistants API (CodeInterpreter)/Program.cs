@@ -94,8 +94,8 @@ internal class Program
                 try
                 {
                     bool isCode = false;
-                    await foreach (ChatMessageContent response in agent.InvokeAsync(threadId)) // InvokeStreamingAsync
-                    //await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(threadId))
+                    //await foreach (ChatMessageContent response in agent.InvokeAsync(threadId)) // InvokeStreamingAsync
+                    await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(threadId))
                     {
                         if (isCode != (response.Metadata?.ContainsKey(OpenAIAssistantAgent.CodeInterpreterMetadataKey) ?? false))
                         {
@@ -106,7 +106,7 @@ internal class Program
                         Console.Write($"{response.Content}");
 
                         // Capture file IDs for downloading
-                        fileIds.AddRange(response.Items.OfType<FileReferenceContent>().Select(item => item.FileId));
+                        fileIds.AddRange(response.Items.OfType<StreamingFileReferenceContent>().Select(item => item.FileId));
                     }
                 }
                 catch (Exception ex)
