@@ -62,7 +62,7 @@ internal class Program
                 instructions: ReadAgentInstructions("AnimalPicker")
             );
         }
-        else
+        else // aiagent_id is an AI Foundry Agent ID
         {
             azureAnimalPickerAgent = await azureAgentsClient.GetAgentAsync(assistantId: aiagent_id);
         }

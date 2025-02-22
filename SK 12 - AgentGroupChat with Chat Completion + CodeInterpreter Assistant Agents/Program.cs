@@ -14,7 +14,6 @@ using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// Copyright (c) Microsoft. All rights reserved.
 
 internal class Program
 {
@@ -42,7 +41,12 @@ internal class Program
 
 
         // Create the Chat Completion Agent: "Joker", with simple kernel
-        var joker_agent = CreateChatCompletionAgent(agent_name: "Joker", kernel: kernel);
+        ChatCompletionAgent? joker_agent = await CreateAgentAsync(
+            agent_type: "chatcompletion_agent",
+            agent_name: "Joker",
+            kernel: kernel) as ChatCompletionAgent;
+
+        //var joker_agent = CreateChatCompletionAgentAsync(agent_name: "Joker", kernel: kernel);
         Console.WriteLine("\n\nFirst, we'll test just the single Agent \"Joker\" (a CHAT COMPLETION agent), until you enter <exit>");
         await ChatWithAgentAsync(agent: joker_agent);
 
@@ -57,25 +61,29 @@ internal class Program
         // Step 2: Create a pointer to the file client provider, to both upload and download files
         OpenAIFileClient fileClient = clientProviderForAzure.Client.GetOpenAIFileClient();
 
-
         // Step 3: Create the OpenAI Assistant Agent
-        OpenAIAssistantAgent statistician_agent = await CreateAssistantAgentAsync(
+        OpenAIAssistantAgent? statistician_agent = await CreateAgentAsync(
+            agent_type: "assistant_agent",
             agent_name: "Statistician",
             kernel: kernel,
             deploymentName: settings.AzureOpenAI.ChatModelDeployment,
-            clientProvider: clientProviderForAzure);
+            clientProvider: clientProviderForAzure,
+            enableCodeInterpreter: true) as OpenAIAssistantAgent;
 
-        //var statistician_agent = CreateChatCompletionAgent(agent_name: "Statistician", kernel: kernel);
-
-        Console.WriteLine("\n\nNow, we'll test just the single \"Statistician\" (an ASSISTANT agent), until you enter <exit>");
+        Console.WriteLine("\n\nAs a second step, we'll test just the single \"Statistician\" (an ASSISTANT agent), until you enter <exit>");
         await ChatWithAgentAsync(agent: statistician_agent, fileClient: fileClient);
 
 
-        // AGENT GROUP CHAT IN 5 STEPS
+        // Create the Reviewer ChatCompletion Agent: "Reviewer", with simple kernel
+        ChatCompletionAgent? reviewer_agent = await CreateAgentAsync(
+            agent_type: "chatcompletion_agent",
+            agent_name: "Reviewer",
+            kernel: kernel) as ChatCompletionAgent;
 
-        // Create the Reviewer Completion Agent: "Reviewer", with simple kernel
-        var reviewer_agent = CreateChatCompletionAgent(agent_name: "Reviewer", kernel: kernel);
         Console.WriteLine("Reviewer agent was created");
+
+
+        // AGENT GROUP CHAT PREPARATION
 
         // "Termination" kernel function that responds "yes" if the last message is satisfactory
         const string TerminationToken = "yes";
@@ -122,7 +130,8 @@ internal class Program
         // history reducer that extracts the last message from the history
         var historyReducer = new ChatHistoryTruncationReducer(targetCount: 1);
 
-        // create the Group Chat Agent
+
+        // // AGENT GROUP CHAT CREATION
         var groupChatAgent = new AgentGroupChat(joker_agent, statistician_agent, reviewer_agent)
         {
             ExecutionSettings = new AgentGroupChatSettings
@@ -150,7 +159,7 @@ internal class Program
             }
         };
 
-        Console.WriteLine("\nAs final step, test the Agent Group Chat");
+        Console.WriteLine("\n\nAs final step, test the Agent Group Chat");
         await ChatWithAgentAsync(agent: groupChatAgent, fileClient: fileClient);
     }
 
@@ -159,45 +168,50 @@ internal class Program
 
 
     // Helper function to read agent instructions from file
-    private static string ReadAgentInstructions(string agentName)
+    private static async Task<string> ReadAgentInstructionsAsync(string agentName)
     {
+        string instructions;
         string filePath = Path.Combine("agents", $"{agentName}.txt");
-        return File.ReadAllText(filePath);
-    }
-
-
-    // Helper function to create a Chat Completion agent
-    private static ChatCompletionAgent CreateChatCompletionAgent(string agent_name, Kernel kernel, KernelArguments? kernelArguments = null)
-    {
-        return new ChatCompletionAgent
-        {
-            Name = agent_name,
-            Instructions = ReadAgentInstructions(agent_name),
-            Kernel = kernel,
-            Arguments = kernelArguments ?? new KernelArguments() // Providing a default value if kernelArguments is null
-        };
+        instructions = await File.ReadAllTextAsync(filePath);
+        return instructions;
     }
 
 
     // Helper function to create an Assistant agent
-    private static async Task<OpenAIAssistantAgent> CreateAssistantAgentAsync(
-        string agent_name, Kernel kernel, OpenAIClientProvider clientProvider, string deploymentName)
+    private static async Task<object> CreateAgentAsync(
+        string agent_type, string agent_name, Kernel kernel, OpenAIClientProvider? clientProvider = null, string? deploymentName = null,
+        bool enableCodeInterpreter = false, bool enableFileSearch = false, KernelArguments? kernelArguments = null)
     {
+        object? agent = null;
 
-        var assistantAgent =
-            await OpenAIAssistantAgent.CreateAsync(
-                clientProvider: clientProvider,
-                definition: new OpenAIAssistantDefinition(deploymentName)
-                {
-                    Name = agent_name,
-                    Instructions = ReadAgentInstructions(agent_name),
-                    EnableCodeInterpreter = true,
-                    EnableFileSearch = false
-                },
-                kernel: kernel // empty kernel, with no associated plugins nor services
+        if (agent_type == "chatcompletion_agent")
+        {
+            agent = new ChatCompletionAgent
+            {
+                Name = agent_name,
+                Instructions = await ReadAgentInstructionsAsync(agent_name),
+                Kernel = kernel,
+                Arguments = kernelArguments ?? new KernelArguments() // Providing a default value if kernelArguments is null
+            };
+        }
+        else if (agent_type == "assistant_agent")
+        {
+            agent =
+                await OpenAIAssistantAgent.CreateAsync(
+                    clientProvider: clientProvider,
+                    definition: new OpenAIAssistantDefinition(deploymentName)
+                    {
+                        Name = agent_name,
+                        Instructions = await ReadAgentInstructionsAsync(agent_name),
+                        EnableCodeInterpreter = enableCodeInterpreter,
+                        EnableFileSearch = enableFileSearch
+                    },
+                    kernel: kernel, // empty kernel, with no associated plugins nor services
+                    defaultArguments: kernelArguments ?? new KernelArguments()
                 );
+        }
 
-        return assistantAgent;
+        return agent;
     }
 
 
@@ -274,8 +288,22 @@ internal class Program
 
             if (!exit_chat)
             {
+
+                // check if it's a CHAT COMPLETION agent
+                if (agent is ChatCompletionAgent chatAgent)
+                {
+                    var history = new ChatHistory();
+                    history.AddUserMessage(userInput);
+                    await foreach (ChatMessageContent response in chatAgent.InvokeAsync(history))
+                    {
+                        Console.WriteLine($"{response.Content}");
+                        // Add the message from the agent to the chat history
+                        history.AddMessage(response.Role, response.Content ?? string.Empty);
+                    }
+                }
+
                 // check if it's an ASSISTANT agent
-                if (agent is OpenAIAssistantAgent assistantAgent)
+                else if (agent is OpenAIAssistantAgent assistantAgent)
                 {
                     List<string> fileIds = [];
                     string threadId = await assistantAgent.CreateThreadAsync();
@@ -310,19 +338,6 @@ internal class Program
                     await DownloadResponseImageAsync(fileClient, fileIds);
 
                     fileIds.Clear();
-                }
-
-                // check if it's a CHAT COMPLETION agent
-                else if (agent is ChatCompletionAgent chatAgent)
-                {
-                    var history = new ChatHistory();
-                    history.AddUserMessage(userInput);
-                    await foreach (ChatMessageContent response in chatAgent.InvokeAsync(history))
-                    {
-                        Console.WriteLine($"{response.Content}");
-                        // Add the message from the agent to the chat history
-                        history.AddMessage(response.Role, response.Content ?? string.Empty);
-                    }
                 }
 
                 // check if it's a GROUP CHAT agent

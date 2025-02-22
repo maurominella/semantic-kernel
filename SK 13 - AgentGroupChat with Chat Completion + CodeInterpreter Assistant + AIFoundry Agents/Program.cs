@@ -20,7 +20,6 @@ using Azure.Identity;
 using Azure; // dotnet add package Azure.Identity
 
 
-
 internal class Program
 {
     private static async Task Main(string[] args)
