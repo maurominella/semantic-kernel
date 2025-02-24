@@ -36,47 +36,28 @@ internal class Program
         Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
         aiagent_id = Console.ReadLine();
 
-        // Create the Chat Completion Agent: "Joker", with simple kernel
-        Console.WriteLine("\n\nTest the single Agent \"AnimalPicker\" (an AI Foundry Agent), until you enter <exit>");
-        // var skAnimalPickerAgent = await CreateAIFoundryAgentAsync(agent_name: "AnimalPicker", aiSettings.GetVariable("PROJECT_CONNECTION_STRING"));
-
-
         // Semantic Kernel client for the AI Foundry Project
-        AzureAIClientProvider sk_project_client = AzureAIClientProvider.FromConnectionString(
+        Microsoft.SemanticKernel.Agents.AzureAI.AzureAIClientProvider sk_project_client = AzureAIClientProvider.FromConnectionString(
             connectionString: aiSettings.GetVariable("PROJECT_CONNECTION_STRING"),
             credential: new AzureCliCredential());
 
+        // Create the "Azure AI SDK object" AI Foundry Agent "AnimalPicker"
+        Azure.AI.Projects.Agent? azure_animalpicker_agent = await CreateAgentAsync(
+            agent_type: "azure_aifoundry_agent", deployment_name: aiSettings.GetVariable("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
+            agent_name: "AnimalPicker", sk_project_client: sk_project_client, connectedresource_name: aiSettings.GetVariable("BING_CONNECTION_NAME"))
+            as Azure.AI.Projects.Agent;
 
-        // Azure SDK client for the Azure AI Foundry Agents service
-        AgentsClient azureAgentsClient = sk_project_client.Client.GetAgentsClient();
+        // Create the "Semantic Kernel SDK object" AI Foundry Agent "AnimalPicker" using the "Azure AI SDK object" AI Foundry Agent
+        Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent? sk_animalpicker_agent = await CreateAgentAsync(
+            agent_type: "sk_aifoundry_agent", azure_aifoundry_agent: azure_animalpicker_agent, sk_project_client: sk_project_client)
+            as Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent;
 
-
-        // Azure SDK client for a loading / creating new Azure AI Foundry agent
-        Agent azureAnimalPickerAgent;
-
-        if (string.IsNullOrWhiteSpace(aiagent_id))
-        {
-            azureAnimalPickerAgent = await azureAgentsClient.CreateAgentAsync(
-                model: aiSettings.AzureOpenAI.ChatModelDeployment,
-                name: "AnimalPicker",
-                instructions: ReadAgentInstructions("AnimalPicker")
-            );
-        }
-        else // aiagent_id is an AI Foundry Agent ID
-        {
-            azureAnimalPickerAgent = await azureAgentsClient.GetAgentAsync(assistantId: aiagent_id);
-        }
-
-
-        // Semantic Kernel client for the Azure AI Foundry agent
-        var skAnimalPickerAgent = new AzureAIAgent(
-            model: azureAnimalPickerAgent,
-            clientProvider: sk_project_client);
 
 
         // create Thread
-        AgentThread my_thread = await azureAgentsClient.CreateThreadAsync();
+        AgentThread my_thread = await sk_project_client.Client.GetAgentsClient().CreateThreadAsync();
 
+        Console.WriteLine("\n\nTest the single Agent \"AnimalPicker\" (an AI Foundry Agent), until you enter <exit>");
 
         // Initiate a back-and-forth chat
         bool isComplete = false;
@@ -95,7 +76,7 @@ internal class Program
                     break;
                 }
 
-                await skAnimalPickerAgent.AddChatMessageAsync(
+                await sk_animalpicker_agent.AddChatMessageAsync(
                     threadId: my_thread.Id,
                     message: new ChatMessageContent(AuthorRole.User, userInput)
                     );
@@ -103,7 +84,7 @@ internal class Program
                 try
                 {
                     bool isCode = false;
-                    await foreach (ChatMessageContent response in skAnimalPickerAgent.InvokeAsync(threadId: my_thread.Id))
+                    await foreach (ChatMessageContent response in sk_animalpicker_agent.InvokeAsync(threadId: my_thread.Id))
                     //await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(threadId: my_thread.Id))
                     {
                         if (isCode != (response.Metadata?.ContainsKey(OpenAIAssistantAgent.CodeInterpreterMetadataKey) ?? false))
@@ -132,8 +113,8 @@ internal class Program
             Console.WriteLine("Cleaning-up...");
             await Task.WhenAll(
                 [
-                    azureAgentsClient.DeleteThreadAsync(threadId: my_thread.Id),
-                    azureAgentsClient.DeleteAgentAsync(agentId: skAnimalPickerAgent.Id)
+                    sk_project_client.Client.GetAgentsClient().DeleteThreadAsync(threadId: my_thread.Id),
+                    sk_project_client.Client.GetAgentsClient().DeleteAgentAsync(agentId: sk_animalpicker_agent.Id)
                 ]);
         }
 
@@ -144,49 +125,76 @@ internal class Program
     }
 
 
-    // Helper function to read agent instructions from file
-    private static string ReadAgentInstructions(string agentName)
+    // Helper function to read the agent's instructions based on its name
+    private static async Task<string> ReadAgentInstructionsAsync(string agentName)
     {
+        string instructions;
         string filePath = Path.Combine("agents", $"{agentName}.txt");
-        return File.ReadAllText(filePath);
+        instructions = await File.ReadAllTextAsync(filePath);
+        return instructions;
     }
 
-    // Helper function to create an AI Foundry agent
-    private static async Task<AzureAIAgent> CreateAIFoundryAgentAsync(string agent_name, string aiproject_connection_string)
+    // Helper function to create a **SEMANTIC KERNEL** AI Foundry agent object 
+    private static async Task<object> CreateAgentAsync(
+        string agent_type, string? agent_name = null, string? aiproject_connection_string = null, string? deployment_name = null,
+        Microsoft.SemanticKernel.Agents.AzureAI.AzureAIClientProvider? sk_project_client = null, string? connectedresource_name = null,
+        Azure.AI.Projects.Agent? azure_aifoundry_agent = null)
     {
-        // Semantic Kernel client for the AI Foundry Project
-        AzureAIClientProvider sk_project_client = AzureAIClientProvider.FromConnectionString(
-            connectionString: aiproject_connection_string,
-            credential: new AzureCliCredential());
+#pragma warning disable CS8604 // Possible null reference argument.
+        // There are two options to create the Azure AI Foundry Agent
+        // - to create an Azure AI Foundry SDK object, we can directly create it with the Azure AI Foundry SDK
+        // - to create a Semantic Kernel SDK object, two steps are needed: Azure AI Foundry SDK object + SK object that relies on the Azure SDK object
 
+        object? agent = null;
 
-        // Azure SDK client for the Azure AI Foundry Agents service
-        AgentsClient azureAgentsClient = sk_project_client.Client.GetAgentsClient();
-
-
-        // Azure SDK client for a loading / creating new Azure AI Foundry agent
-        Agent azureAnimalPickerAgent;
-
-
-        if (string.IsNullOrWhiteSpace(aiagent_id))
+        if (agent_type == "azure_aifoundry_agent")
         {
-            azureAnimalPickerAgent = await azureAgentsClient.CreateAgentAsync(
-                model: aiproject_connection_string,
-                name: "AnimalPicker",
-                instructions: ReadAgentInstructions("AnimalPicker")
-            );
+            if (string.IsNullOrWhiteSpace(aiagent_id)) // create the agent
+            {
+                var tools = new List<ToolDefinition>();
+
+                if (connectedresource_name != null)
+                {
+                    var connectedresource = await sk_project_client.Client.GetConnectionsClient().GetConnectionAsync(connectedresource_name);
+
+                    // Pointer for the Azure SDK AI Foundry Agents service
+                    Azure.AI.Projects.AgentsClient azureAgentsClient = sk_project_client.Client.GetAgentsClient();
+                    var connectionList = new ToolConnectionList
+                    {
+                        ConnectionList = { new ToolConnection(connectedresource.Value.Id) }
+                    };
+
+                    var bingGroundingTool = new BingGroundingToolDefinition(connectionList);
+                    tools.Add(bingGroundingTool);
+                }
+
+                var result = await sk_project_client.Client.GetAgentsClient().CreateAgentAsync(
+                    model: deployment_name,
+                    name: agent_name,
+                    instructions: await ReadAgentInstructionsAsync(agent_name),
+                    tools: tools
+                );
+                agent = result.Value;
+            }
+            else // load an existing agent whose id = aiagent_id
+            {
+                var response = await sk_project_client.Client.GetAgentsClient().GetAgentAsync(assistantId: aiagent_id);
+                agent = response.Value;
+            }
         }
-        else
+
+        else if (agent_type == "sk_aifoundry_agent")
         {
-            azureAnimalPickerAgent = await azureAgentsClient.GetAgentAsync(assistantId: aiagent_id);
+
+            // Semantic Kernel SDK Agent. WE NEED TO "CLONE" THE AZURE AI AGENT TO CREATE THIS!!
+            var result = new Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent(
+                model: azure_aifoundry_agent,
+                clientProvider: sk_project_client);
+            agent = result;
         }
 
-
-        // // Semantic Kernel client for the Azure AI Foundry agent
-        var skAnimalPickerAgent = new AzureAIAgent(
-            model: azureAnimalPickerAgent,
-            clientProvider: sk_project_client);
-
-        return skAnimalPickerAgent;
+        return agent;
+#pragma warning restore CS8604 // Possible null reference argument.
     }
+
 }

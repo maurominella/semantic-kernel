@@ -20,25 +20,24 @@ internal class Program
     private static async Task Main(string[] args)
     {
         Console.WriteLine("Application starts");
-        // Load configuration from environment variables or user secrets.
 
-        var settings = new AISettings();
-        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {settings.AzureOpenAI.Endpoint}\n" +
-        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {settings.AzureOpenAI.ChatModelDeployment}");
+        // Load configuration from environment variables or user secrets
+        var aiSettings = new AISettings();
+        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {aiSettings.AzureOpenAI.Endpoint}\n" +
+        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {aiSettings.AzureOpenAI.ChatModelDeployment}");
 
-        // Create the Azure Chat Completion object, e.g. the pointer to Azure OpenAI
-        var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
-            deploymentName: settings.AzureOpenAI.ChatModelDeployment,
-            endpoint: settings.AzureOpenAI.Endpoint,
-            apiKey: settings.AzureOpenAI.ApiKey
+        // Create the kernel builder object that encapsulates the pointer to Azure OpenAI
+        IKernelBuilder builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
+            deploymentName: aiSettings.AzureOpenAI.ChatModelDeployment,
+            endpoint: aiSettings.AzureOpenAI.Endpoint,
+            apiKey: aiSettings.AzureOpenAI.ApiKey
         );
-
-        // Build the kernel, that already integrates the AzureOpenAIChatCompletion object
-        Kernel kernel = builder.Build();
 
         // Add enterprise logging components
         builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
 
+        // Use above builder to create the kernel so to inlcude a) LLM pointer b) logging service
+        Kernel kernel = builder.Build();
 
         // Create the Chat Completion Agent: "Joker", with simple kernel
         ChatCompletionAgent? joker_agent = await CreateAgentAsync(
@@ -46,7 +45,7 @@ internal class Program
             agent_name: "Joker",
             kernel: kernel) as ChatCompletionAgent;
 
-        //var joker_agent = CreateChatCompletionAgentAsync(agent_name: "Joker", kernel: kernel);
+        // Test the Joker agent
         Console.WriteLine("\n\nFirst, we'll test just the single Agent \"Joker\" (a CHAT COMPLETION agent), until you enter <exit>");
         await ChatWithAgentAsync(agent: joker_agent);
 
@@ -55,8 +54,8 @@ internal class Program
 
         // Step 1: OpenAIClientProvider is used for the Agent Definition as well as file-upload
         var clientProviderForAzure = OpenAIClientProvider.ForAzureOpenAI(
-            apiKey: new System.ClientModel.ApiKeyCredential(settings.AzureOpenAI.ApiKey),
-            endpoint: new Uri(settings.AzureOpenAI.Endpoint));
+            apiKey: new System.ClientModel.ApiKeyCredential(aiSettings.AzureOpenAI.ApiKey),
+            endpoint: new Uri(aiSettings.AzureOpenAI.Endpoint));
 
         // Step 2: Create a pointer to the file client provider, to both upload and download files
         OpenAIFileClient fileClient = clientProviderForAzure.Client.GetOpenAIFileClient();
@@ -66,10 +65,11 @@ internal class Program
             agent_type: "assistant_agent",
             agent_name: "Statistician",
             kernel: kernel,
-            deploymentName: settings.AzureOpenAI.ChatModelDeployment,
+            deploymentName: aiSettings.AzureOpenAI.ChatModelDeployment,
             clientProvider: clientProviderForAzure,
             enableCodeInterpreter: true) as OpenAIAssistantAgent;
 
+        // Test the Statistician agent
         Console.WriteLine("\n\nAs a second step, we'll test just the single \"Statistician\" (an ASSISTANT agent), until you enter <exit>");
         await ChatWithAgentAsync(agent: statistician_agent, fileClient: fileClient);
 
@@ -167,7 +167,7 @@ internal class Program
     // HELPER FUNCTIONS
 
 
-    // Helper function to read agent instructions from file
+    // Helper function to read the agent's instructions based on its name
     private static async Task<string> ReadAgentInstructionsAsync(string agentName)
     {
         string instructions;

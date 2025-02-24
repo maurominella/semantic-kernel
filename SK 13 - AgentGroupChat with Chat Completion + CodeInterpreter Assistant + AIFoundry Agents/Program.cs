@@ -25,28 +25,32 @@ internal class Program
     private static async Task Main(string[] args)
     {
         Console.WriteLine("Application starts");
-        // Load configuration from environment variables or user secrets.
 
+        // Load configuration from environment variables or user secrets
         var aiSettings = new AISettings();
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {aiSettings.AzureOpenAI.Endpoint}\n" +
         $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {aiSettings.AzureOpenAI.ChatModelDeployment}");
 
-        // Create the Azure Chat Completion object, e.g. the pointer to Azure OpenAI
-        var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
+        // Create the kernel builder object that encapsulates the pointer to Azure OpenAI
+        IKernelBuilder builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
             deploymentName: aiSettings.AzureOpenAI.ChatModelDeployment,
             endpoint: aiSettings.AzureOpenAI.Endpoint,
             apiKey: aiSettings.AzureOpenAI.ApiKey
         );
 
-        // Build the kernel, that already integrates the AzureOpenAIChatCompletion object
-        Kernel kernel = builder.Build();
-
         // Add enterprise logging components
         builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
 
+        // Use above builder to create the kernel so to inlcude a) LLM pointer b) logging service
+        Kernel kernel = builder.Build();
 
         // Create the Chat Completion Agent: "Joker", with simple kernel
-        var joker_agent = CreateChatCompletionAgent(agent_name: "Joker", kernel: kernel);
+        ChatCompletionAgent? joker_agent = await CreateAgentAsync(
+            agent_type: "chatcompletion_agent",
+            agent_name: "Joker",
+            kernel: kernel) as ChatCompletionAgent;
+
+        // Test the Joker agent
         Console.WriteLine("\n\nFirst, we'll test just the single Agent \"Joker\" (a CHAT COMPLETION agent), until you enter <exit>");
         await ChatWithAgentAsync(agent: joker_agent);
 
@@ -61,20 +65,21 @@ internal class Program
         // Step 2: Create a pointer to the file client provider, to both upload and download files
         OpenAIFileClient fileClient = clientProviderForAzure.Client.GetOpenAIFileClient();
 
-
         // Step 3: Create the OpenAI Assistant Agent
-        OpenAIAssistantAgent statistician_agent = await CreateAssistantAgentAsync(
+        OpenAIAssistantAgent? statistician_agent = await CreateAgentAsync(
+            agent_type: "assistant_agent",
             agent_name: "Statistician",
             kernel: kernel,
             deploymentName: aiSettings.AzureOpenAI.ChatModelDeployment,
-            clientProvider: clientProviderForAzure);
+            clientProvider: clientProviderForAzure,
+            enableCodeInterpreter: true) as OpenAIAssistantAgent;
 
-
-        Console.WriteLine("\n\nNow, we'll test just the single \"Statistician\" (an ASSISTANT agent), until you enter <exit>");
+        // Test the Statistician agent
+        Console.WriteLine("\n\nAs a second step, we'll test just the single \"Statistician\" (an ASSISTANT agent), until you enter <exit>");
         await ChatWithAgentAsync(agent: statistician_agent, fileClient: fileClient);
 
 
-        // Step 4: Create the AI Foundry Agent (which is also an OpenAIAssistantAgent)
+        // Create the AI Foundry Agent (which is also an OpenAIAssistantAgent)
         var projectConnectionString = aiSettings.GetVariable("PROJECT_CONNECTION_STRING"); // .AzureAICONNECTIONSTRING;
         var clientOptions = new AIProjectClientOptions();
         var projectClient = new AIProjectClient(projectConnectionString, new DefaultAzureCredential(), clientOptions);
@@ -99,11 +104,16 @@ internal class Program
         Azure.AI.Projects.Agent ai_agent = agentResponse.Value;
 
 
-        // AGENT GROUP CHAT IN 5 STEPS
+        // Create the Reviewer ChatCompletion Agent: "Reviewer", with simple kernel
+        ChatCompletionAgent? reviewer_agent = await CreateAgentAsync(
+            agent_type: "chatcompletion_agent",
+            agent_name: "Reviewer",
+            kernel: kernel) as ChatCompletionAgent;
 
-        // Create the Reviewer Completion Agent: "Reviewer", with simple kernel
-        var reviewer_agent = CreateChatCompletionAgent(agent_name: "Reviewer", kernel: kernel);
         Console.WriteLine("Reviewer agent was created");
+
+
+        // AGENT GROUP CHAT PREPARATION
 
         // "Termination" kernel function that responds "yes" if the last message is satisfactory
         const string TerminationToken = "yes";
@@ -187,23 +197,57 @@ internal class Program
 
 
     // Helper function to read agent instructions from file
-    private static string ReadAgentInstructions(string agentName)
+
+
+    // Helper function to read the agent's instructions based on its name
+    private static async Task<string> ReadAgentInstructionsAsync(string agentName)
     {
+        string instructions;
         string filePath = Path.Combine("agents", $"{agentName}.txt");
-        return File.ReadAllText(filePath);
+        instructions = await File.ReadAllTextAsync(filePath);
+        return instructions;
     }
 
 
-    // Helper function to create a Chat Completion agent
-    private static ChatCompletionAgent CreateChatCompletionAgent(string agent_name, Kernel kernel, KernelArguments? kernelArguments = null)
+    // Helper function to create an Assistant agent
+    private static async Task<object> CreateAgentAsync(
+        string agent_type, string agent_name, Kernel kernel, OpenAIClientProvider? clientProvider = null, string? deploymentName = null,
+        bool enableCodeInterpreter = false, bool enableFileSearch = false, KernelArguments? kernelArguments = null)
     {
-        return new ChatCompletionAgent
+        object? agent = null;
+
+        if (agent_type == "chatcompletion_agent")
         {
-            Name = agent_name,
-            Instructions = ReadAgentInstructions(agent_name),
-            Kernel = kernel,
-            Arguments = kernelArguments ?? new KernelArguments() // Providing a default value if kernelArguments is null
-        };
+            agent = new ChatCompletionAgent
+            {
+                Name = agent_name,
+                Instructions = await ReadAgentInstructionsAsync(agent_name),
+                Kernel = kernel,
+                Arguments = kernelArguments ?? new KernelArguments() // Providing a default value if kernelArguments is null
+            };
+        }
+        else if (agent_type == "assistant_agent")
+        {
+            agent =
+                await OpenAIAssistantAgent.CreateAsync(
+                    clientProvider: clientProvider,
+                    definition: new OpenAIAssistantDefinition(deploymentName)
+                    {
+                        Name = agent_name,
+                        Instructions = await ReadAgentInstructionsAsync(agent_name),
+                        EnableCodeInterpreter = enableCodeInterpreter,
+                        EnableFileSearch = enableFileSearch
+                    },
+                    kernel: kernel, // empty kernel, with no associated plugins nor services
+                    defaultArguments: kernelArguments ?? new KernelArguments()
+                );
+        }
+        else if (agent_type == "aifoundry_agent")
+        {
+
+        }
+
+        return agent;
     }
 
 
