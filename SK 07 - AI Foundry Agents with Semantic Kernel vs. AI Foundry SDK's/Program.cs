@@ -52,76 +52,13 @@ internal class Program
             agent_type: "sk_aifoundry_agent", azure_aifoundry_agent: azure_animalpicker_agent, sk_project_client: sk_project_client)
             as Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent;
 
-
-
-        // create Thread
-        AgentThread my_thread = await sk_project_client.Client.GetAgentsClient().CreateThreadAsync();
-
+        // Test the AnimalPicker agent
         Console.WriteLine("\n\nTest the single Agent \"AnimalPicker\" (an AI Foundry Agent), until you enter <exit>");
-
-        // Initiate a back-and-forth chat
-        bool isComplete = false;
-        string? userInput;
-        try
-        {
-            do
-            {
-                Console.WriteLine();
-                Console.Write("User > ");
-                // Collect user input
-                userInput = Console.ReadLine();
-                if (string.IsNullOrWhiteSpace(userInput) || userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
-                {
-                    isComplete = true;
-                    break;
-                }
-
-                await sk_animalpicker_agent.AddChatMessageAsync(
-                    threadId: my_thread.Id,
-                    message: new ChatMessageContent(AuthorRole.User, userInput)
-                    );
-
-                try
-                {
-                    bool isCode = false;
-                    await foreach (ChatMessageContent response in sk_animalpicker_agent.InvokeAsync(threadId: my_thread.Id))
-                    //await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(threadId: my_thread.Id))
-                    {
-                        if (isCode != (response.Metadata?.ContainsKey(OpenAIAssistantAgent.CodeInterpreterMetadataKey) ?? false))
-                        {
-                            Console.WriteLine();
-                            isCode = !isCode;
-                        }
-                        // Display response.
-                        Console.Write($"{response.Content}");
-
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error (but don't worry, we can continue ;-)): {ex.Message}");
-                    isComplete = true;
-                }
-
-                Console.WriteLine();
-
-            } while (!isComplete);
-        }
-        finally
-        {
-            Console.WriteLine();
-            Console.WriteLine("Cleaning-up...");
-            await Task.WhenAll(
-                [
-                    sk_project_client.Client.GetAgentsClient().DeleteThreadAsync(threadId: my_thread.Id),
-                    sk_project_client.Client.GetAgentsClient().DeleteAgentAsync(agentId: sk_animalpicker_agent.Id)
-                ]);
-        }
-
-        if (isComplete)
-        {
-            return; // Terminate the program after the finally block
-        }
+#pragma warning disable CS8604 // Possible null reference argument.
+        await ChatWithAgentAsync(agent: sk_animalpicker_agent, sk_project_client: sk_project_client);
+        Console.WriteLine($"Deleting the agent {sk_animalpicker_agent.Name} ({sk_animalpicker_agent.Id})...");
+        await sk_project_client.Client.GetAgentsClient().DeleteAgentAsync(agentId: sk_animalpicker_agent.Id);
+#pragma warning restore CS8604 // Possible null reference argument.
     }
 
 
@@ -195,6 +132,70 @@ internal class Program
 
         return agent;
 #pragma warning restore CS8604 // Possible null reference argument.
+    }
+
+
+    // Single Chat function for all kinds of agents
+    private static async Task ChatWithAgentAsync(
+        object agent, Microsoft.SemanticKernel.Agents.AzureAI.AzureAIClientProvider? sk_project_client = null)
+    {
+        // Initiate a back-and-forth chat
+        bool exit_chat = false;
+        string? user_input;
+
+        do
+        {
+            Console.Write("\nUser > ");
+
+            // Collect user input
+            user_input = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
+            {
+                exit_chat = true;
+                break;
+            }
+
+            // check if it's a AZURE AI agent
+            if (agent is Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent chatAgent)
+            {
+                // create Thread
+                AgentThread my_thread = await sk_project_client.Client.GetAgentsClient().CreateThreadAsync();
+
+                await chatAgent.AddChatMessageAsync(
+                    threadId: my_thread.Id,
+                    message: new ChatMessageContent(AuthorRole.User, user_input));
+
+                try
+                {
+                    bool isCode = false;
+                    //await foreach (ChatMessageContent response in chatAgent.InvokeAsync(threadId: my_thread.Id))
+                    await foreach (StreamingChatMessageContent response in chatAgent.InvokeStreamingAsync(threadId: my_thread.Id))
+                    {
+                        if (isCode != (response.Metadata?.ContainsKey(OpenAIAssistantAgent.CodeInterpreterMetadataKey) ?? false))
+                        {
+                            Console.WriteLine();
+                            isCode = !isCode;
+                        }
+                        // Display response.
+                        Console.Write($"{response.Content}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error (but don't worry, we can continue ;-)): {ex.Message}");
+                    exit_chat = true;
+                }
+                finally
+                {
+                    Console.WriteLine($"\nDeleting thread {my_thread.Id}...");
+
+                    await Task.WhenAll(
+                        [
+                            sk_project_client.Client.GetAgentsClient().DeleteThreadAsync(threadId: my_thread.Id)
+                        ]);
+                }
+            }
+        } while (!exit_chat);
     }
 
 }
