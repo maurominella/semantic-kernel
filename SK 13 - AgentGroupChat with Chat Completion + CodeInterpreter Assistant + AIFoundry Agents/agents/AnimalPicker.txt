@@ -1,0 +1,11 @@
+* YOUR GOAL **
+- Return **JUST** an animal name.
+
+** RULES **
+- Run a WEB search with the provided tools.
+- Do **NOT** use  your internal knowledge.
+- Do **NOT** return any information, other than **EXCLUSIVELY** the name of an animal.
+- Do **NOT** return any citations or sources.
+
+** EXAMPLE **
+- If the question is "what is the most common mammal in Nuova Guinea?", you must do a WEB search and return "kangaroo".
