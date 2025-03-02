@@ -6,7 +6,7 @@
     <RootNamespace>SK 06 - Assistants API (CodeInterpreter)</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <NoWarn>$(NoWarn);CA1031;CA1852;CA1859;CA2007;CS8603;IDE1006;SKEXP0001;SKEXP0110;OPENAI001;CS8602;CS8604;CS8618</NoWarn>
+    <NoWarn>$(NoWarn);CA1031;CA1852;CA1859;CA2007;CS8603;CS8604;IDE1006;SKEXP0001;SKEXP0110;OPENAI001;CS8602;CS8604;CS8618</NoWarn>
   </PropertyGroup>
   
   <ItemGroup>
@@ -23,9 +23,9 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="9.0.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.1" />
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.37.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.39.0-alpha" />
-    <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.39.0-alpha" />
-    <PackageReference Include="Microsoft.SemanticKernel.Connectors.AzureOpenAI" Version="1.39.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.40.0-preview" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.40.0-preview" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.40.0-preview" />
     <PackageReference Include="Azure.AI.Projects" Version="1.0.0-beta.3" />
 
   </ItemGroup>

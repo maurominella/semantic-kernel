@@ -3,11 +3,25 @@
 // It's worth also to check "SK 07 - AI Foundry Agents with Semantic Kernel vs. AI Foundry SDK's.ipynb"
 
 using LLMSettings;
+
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.40.0" />
 using Microsoft.SemanticKernel;
 
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Agents;
+
+// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.40.0-preview" />
 using Microsoft.SemanticKernel.Agents.OpenAI;
+
+// dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.40.0-preview" />
+using Microsoft.SemanticKernel.Agents.AzureAI;
+
+// dotnet add package Azure.AI.Projects --prerelease --> <PackageReference Include="Azure.AI.Projects" Version="1.0.0-beta.4" />
+using Azure.AI.Projects;
+using Azure.AI.OpenAI;
+
+// dotnet add package Microsoft.SemanticKernel.Agents.Core --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.40.0-preview" />
+
 using Microsoft.SemanticKernel.Agents.Chat;
 
 using OpenAI.Files;
@@ -15,21 +29,54 @@ using OpenAI.Files;
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Azure.AI.Projects; // dotnet add package Azure.AI.Projects --prereleasedotnet
 using Azure.Identity;
-using Azure; // dotnet add package Azure.Identity
+using Azure;
+using Microsoft.Identity.Client;
+using OpenAI.Assistants; // dotnet add package Azure.Identity
 
 
 internal class Program
 {
+    private static string? aiagent_id = null; //"asst_8tFjVkAnFiqSwukxKypuTdwg"; // asst_8tFjVkAnFiqSwukxKypuTdwg
     private static async Task Main(string[] args)
     {
+        #region Environment Configuration
         Console.WriteLine("Application starts");
 
         // Load configuration from environment variables or user secrets
         var aiSettings = new AISettings();
+
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {aiSettings.AzureOpenAI.Endpoint}\n" +
         $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {aiSettings.AzureOpenAI.ChatModelDeployment}");
+        #endregion
+
+
+        #region Semantic Kernel AI Foundry Agent
+
+        Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
+        aiagent_id = Console.ReadLine();
+
+        // Semantic Kernel client for the AI Foundry Project
+        Microsoft.SemanticKernel.Agents.AzureAI.AzureAIClientProvider sk_project_client = AzureAIClientProvider.FromConnectionString(
+            connectionString: aiSettings.GetVariable("PROJECT_CONNECTION_STRING"),
+            credential: new AzureCliCredential());
+
+        // Semantic Kernel AI Foundry Agent
+        Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent sk_animalpicker_agent = await CreateAiFoundryAgentAsync(
+            sk_project_client: sk_project_client,
+            agent_name: "AnimalPicker",
+            deployment_name: aiSettings.GetVariable("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
+            connectedresource_name: aiSettings.GetVariable("BING_CONNECTION_NAME"));
+
+        // Test the AnimalPicker agent
+        Console.WriteLine("\n\nTest the single Agent \"AnimalPicker\" (an AI Foundry Agent), until you enter <exit>");
+        await ChatWithAgentAsync(agent: sk_animalpicker_agent, sk_project_client: sk_project_client);
+
+        Console.WriteLine($"Deleting the agent {sk_animalpicker_agent.Name} ({sk_animalpicker_agent.Id})...");
+        await sk_project_client.Client.GetAgentsClient().DeleteAgentAsync(agentId: sk_animalpicker_agent.Id);
+
+        #endregion
+
 
         // Create the kernel builder object that encapsulates the pointer to Azure OpenAI
         IKernelBuilder builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
@@ -39,7 +86,7 @@ internal class Program
         );
 
         // Add enterprise logging components
-        builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
+        builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace));
 
         // Use above builder to create the kernel so to inlcude a) LLM pointer b) logging service
         Kernel kernel = builder.Build();
@@ -70,7 +117,7 @@ internal class Program
             agent_type: "assistant_agent",
             agent_name: "Statistician",
             kernel: kernel,
-            deploymentName: aiSettings.AzureOpenAI.ChatModelDeployment,
+            deployment_name: aiSettings.AzureOpenAI.ChatModelDeployment,
             clientProvider: clientProviderForAzure,
             enableCodeInterpreter: true) as OpenAIAssistantAgent;
 
@@ -99,7 +146,7 @@ internal class Program
             model: aiSettings.AzureOpenAI.ChatModelDeployment,
             name: "my-assistant",
             instructions: "You are a helpful assistant.",
-            tools: new List<ToolDefinition> { bingGroundingTool });
+            tools: new List<Azure.AI.Projects.ToolDefinition> { bingGroundingTool });
 
         Azure.AI.Projects.Agent ai_agent = agentResponse.Value;
 
@@ -211,8 +258,10 @@ internal class Program
 
     // Helper function to create an Assistant agent
     private static async Task<object> CreateAgentAsync(
-        string agent_type, string agent_name, Kernel kernel, OpenAIClientProvider? clientProvider = null, string? deploymentName = null,
-        bool enableCodeInterpreter = false, bool enableFileSearch = false, KernelArguments? kernelArguments = null)
+        string agent_type, string agent_name, Kernel? kernel = null, OpenAIClientProvider? clientProvider = null, string? deployment_name = null,
+        Microsoft.SemanticKernel.Agents.AzureAI.AzureAIClientProvider? sk_project_client = null, string? connectedresource_name = null,
+        bool enableCodeInterpreter = false, bool enableFileSearch = false, KernelArguments? kernelArguments = null,
+        Azure.AI.Projects.Agent? azure_aifoundry_agent = null)
     {
         object? agent = null;
 
@@ -228,25 +277,81 @@ internal class Program
         }
         else if (agent_type == "assistant_agent")
         {
-            agent =
-                await OpenAIAssistantAgent.CreateAsync(
-                    clientProvider: clientProvider,
-                    definition: new OpenAIAssistantDefinition(deploymentName)
-                    {
-                        Name = agent_name,
-                        Instructions = await ReadAgentInstructionsAsync(agent_name),
-                        EnableCodeInterpreter = enableCodeInterpreter,
-                        EnableFileSearch = enableFileSearch
-                    },
-                    kernel: kernel, // empty kernel, with no associated plugins nor services
-                    defaultArguments: kernelArguments ?? new KernelArguments()
-                );
+            // Experimental: cfr. https://www.nuget.org/packages/Azure.AI.OpenAI.Assistants/1.0.0-beta.4
+            
+            agent = await Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent.CreateAsync( // Obsolete but working:
+                clientProvider: clientProvider,
+                definition: new OpenAIAssistantDefinition(deployment_name)
+                {
+                    Name = agent_name,
+                    Instructions = await ReadAgentInstructionsAsync(agent_name),
+                    EnableCodeInterpreter = enableCodeInterpreter,
+                    EnableFileSearch = enableFileSearch
+                },
+                kernel: kernel,
+                defaultArguments: kernelArguments ?? new KernelArguments()
+            );
+            /*
+            var client = new OpenAI.Assistants.AssistantClient().CreateAssistantAsync;
+            
+        
+            var agent2 = await client.CreateAssistantAsync(
+                model: deployment_name,
+                // https://learn.microsoft.com/en-us/dotnet/api/azure.ai.openai.assistants.assistantcreationoptions?view=azure-dotnet-preview
+                options: new Azure.AI.OpenAI.Assistants.AssistantCreationOptions()
+                {
+                    Name = agent_name,
+                    Instructions = await ReadAgentInstructionsAsync(agent_name),
+                    Model = "",
+                    
+                    Tools = new List<OpenAI.Assistants.ToolDefinition>() // The collection of tools to enable for the new assistant
+                });*/
         }
-        else if (agent_type == "aifoundry_agent")
+        else if (agent_type == "azure_aifoundry_agent")
+        {
+            if (string.IsNullOrWhiteSpace(aiagent_id)) // create the agent
+            {
+                var tools = new List<Azure.AI.Projects.ToolDefinition>();
+
+                if (connectedresource_name != null)
+                {
+                    var connected_resource = await sk_project_client.Client.GetConnectionsClient().GetConnectionAsync(connectedresource_name);
+
+                    // Pointer for the Azure SDK AI Foundry Agents service
+                    Azure.AI.Projects.AgentsClient azureAgentsClient = sk_project_client.Client.GetAgentsClient();
+                    var connectionList = new ToolConnectionList
+                    {
+                        ConnectionList = { new ToolConnection(connected_resource.Value.Id) }
+                    };
+
+                    var bingGroundingTool = new BingGroundingToolDefinition(connectionList);
+                    tools.Add(bingGroundingTool);
+                }
+
+                var result = await sk_project_client.Client.GetAgentsClient().CreateAgentAsync(
+                    model: deployment_name,
+                    name: agent_name,
+                    instructions: await ReadAgentInstructionsAsync(agent_name),
+                    tools: tools
+                );
+
+                agent = result.Value;
+            }
+            else // load an existing agent whose id = aiagent_id
+            {
+                var response = await sk_project_client.Client.GetAgentsClient().GetAgentAsync(assistantId: aiagent_id);
+                agent = response.Value;
+            }
+        }
+        else if (agent_type == "sk_aifoundry_agent")
         {
 
+            // Semantic Kernel SDK Agent. WE NEED TO "CLONE" THE AZURE AI AGENT TO CREATE THIS!!
+            var result = new Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent(
+                model: azure_aifoundry_agent,
+                client: sk_project_client.Client.GetAgentsClient());
+            agent = result;
         }
-
         return agent;
     }
 
@@ -255,14 +360,13 @@ internal class Program
     private static async Task<OpenAIAssistantAgent> CreateAssistantAgentAsync(
         string agent_name, Kernel kernel, OpenAIClientProvider clientProvider, string deploymentName)
     {
-
         var assistantAgent =
             await OpenAIAssistantAgent.CreateAsync(
                 clientProvider: clientProvider,
                 definition: new OpenAIAssistantDefinition(deploymentName)
                 {
                     Name = agent_name,
-                    Instructions = ReadAgentInstructions(agent_name),
+                    Instructions = await ReadAgentInstructionsAsync(agent_name),
                     EnableCodeInterpreter = true,
                     EnableFileSearch = false
                 },
@@ -273,11 +377,29 @@ internal class Program
     }
 
 
-    // Helper function to create an AI Foundry agent
-    private static async Task<OpenAIAssistantAgent> CreateAIFoundryAgentAsync()
-    {
 
+    // Helper function to create a **SEMANTIC KERNEL** AI Foundry agent object
+    private static async Task<Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent> CreateAiFoundryAgentAsync(
+        Microsoft.SemanticKernel.Agents.AzureAI.AzureAIClientProvider sk_project_client,
+        string agent_name,
+        string deployment_name,
+        string connectedresource_name)
+    {
+        // Create the "Azure AI SDK object" AI Foundry Agent
+        Azure.AI.Projects.Agent? azure_aifoundry_agent = await CreateAgentAsync(
+            agent_type: "azure_aifoundry_agent", agent_name: agent_name, deployment_name: deployment_name,
+            sk_project_client: sk_project_client, connectedresource_name: connectedresource_name)
+            as Azure.AI.Projects.Agent;
+
+        // Create the "Semantic Kernel SDK object" AI Foundry Agent using the "Azure AI SDK object" AI Foundry Agent
+        Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent? sk_aifoundry_agent = await CreateAgentAsync(
+            agent_type: "sk_aifoundry_agent", agent_name: agent_name, 
+            azure_aifoundry_agent: azure_aifoundry_agent, sk_project_client: sk_project_client)
+            as Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent;
+
+        return sk_aifoundry_agent;
     }
+
 
     // Helper function to remove duplicates from a string list, when it's built by a streaming function
     private static List<string> RemoveDuplicates(List<string> fileIds)
@@ -337,18 +459,21 @@ internal class Program
 
 
     // Single Chat function for all kinds of agents
-    private static async Task ChatWithAgentAsync(object agent, OpenAIFileClient? fileClient = null)
+    private static async Task ChatWithAgentAsync(
+        object agent,
+        OpenAIFileClient? fileClient = null,
+        Microsoft.SemanticKernel.Agents.AzureAI.AzureAIClientProvider? sk_project_client = null)
     {
-        string? userInput;
+        string? user_input;
         bool exit_chat = false;
 
         do
         {
             Console.Write("User > ");
-            userInput = Console.ReadLine();
+            user_input = Console.ReadLine();
 
             // Check if userInput is not null or EXIT
-            exit_chat = string.IsNullOrWhiteSpace(userInput) || userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase);
+            exit_chat = string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase);
 
             if (!exit_chat)
             {
@@ -356,8 +481,9 @@ internal class Program
                 if (agent is OpenAIAssistantAgent assistantAgent)
                 {
                     List<string> fileIds = [];
-                    string threadId = await assistantAgent.CreateThreadAsync();
-                    await assistantAgent.AddChatMessageAsync(threadId, new ChatMessageContent(AuthorRole.User, userInput));
+                    var thread = await assistantAgent.Client.CreateThreadAsync(); // obsolete: assistantAgent.CreateThreadAsync();
+                    string? threadId = thread.ToString();
+                    await assistantAgent.AddChatMessageAsync(threadId, new ChatMessageContent(AuthorRole.User, user_input));
 
                     try
                     {
@@ -394,7 +520,7 @@ internal class Program
                 else if (agent is ChatCompletionAgent chatAgent)
                 {
                     var history = new ChatHistory();
-                    history.AddUserMessage(userInput);
+                    history.AddUserMessage(user_input);
                     await foreach (ChatMessageContent response in chatAgent.InvokeAsync(history))
                     {
                         Console.WriteLine($"{response.Content}");
@@ -403,12 +529,53 @@ internal class Program
                     }
                 }
 
+                // check if it's a AZURE AI agent
+                else if (agent is Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent azureAIAgent)
+                {
+                    // create Thread
+                    AgentThread my_thread = await sk_project_client.Client.GetAgentsClient().CreateThreadAsync();
+
+                    await azureAIAgent.AddChatMessageAsync(
+                        threadId: my_thread.Id,
+                        message: new ChatMessageContent(AuthorRole.User, user_input));
+
+                    try
+                    {
+                        bool isCode = false;
+                        //await foreach (ChatMessageContent response in chatAgent.InvokeAsync(threadId: my_thread.Id))
+                        await foreach (StreamingChatMessageContent response in azureAIAgent.InvokeStreamingAsync(threadId: my_thread.Id))
+                        {
+                            if (isCode != (response.Metadata?.ContainsKey(OpenAIAssistantAgent.CodeInterpreterMetadataKey) ?? false))
+                            {
+                                Console.WriteLine();
+                                isCode = !isCode;
+                            }
+                            // Display response.
+                            Console.Write($"{response.Content}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error (but don't worry, we can continue ;-)): {ex.Message}");
+                        exit_chat = true;
+                    }
+                    finally
+                    {
+                        Console.WriteLine($"\nDeleting thread {my_thread.Id}...");
+
+                        await Task.WhenAll(
+                            [
+                                sk_project_client.Client.GetAgentsClient().DeleteThreadAsync(threadId: my_thread.Id)
+                            ]);
+                    }
+                }
+                
                 // check if it's a GROUP CHAT agent
                 else if (agent is AgentGroupChat groupAgent)
                 {
                     var author_name = ""; // used in the streaming to check when the author changes
                     List<string> fileIds = [];
-                    groupAgent.AddChatMessage(new ChatMessageContent(AuthorRole.User, userInput));
+                    groupAgent.AddChatMessage(new ChatMessageContent(AuthorRole.User, user_input));
                     await foreach (StreamingChatMessageContent response in groupAgent.InvokeStreamingAsync())
                     //await foreach (ChatMessageContent response in groupAgent.InvokeAsync())
                     {
@@ -434,7 +601,9 @@ internal class Program
                     Console.WriteLine();
                     exit_chat = exit_chat || groupAgent.IsComplete;
                 }
+
             }
+
         } while (!exit_chat);
     }
 
