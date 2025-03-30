@@ -2,6 +2,8 @@
 
 // See https://aka.ms/new-console-template for more information
 
+// to create the C# console app: "dotnet new console --framework net8.0" followed by "dotnet restore" (not needed after SDK 2.0, just use dotnet build or dotnet run)
+
 // this sample implements the OpenAI ChatCompletion object (instance of IChatCompletionService) 
 // that we use to call GetChatMessageContentAsync
 

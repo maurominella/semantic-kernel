@@ -1,14 +1,18 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
-// See https://aka.ms/new-console-template for more information
+// **Documentation**: [`ChatHistoryAgentThread`](https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-chat-agent?pivots=programming-language-csharp)
+
 // Import packages
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.44.0" />
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
+
+// dotnet add package Microsoft.SemanticKernel.Agents.Core --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.44.0-preview" />
+using Microsoft.SemanticKernel.Agents;
 
 using DotNetEnv;
 using AIPlugins;
@@ -87,8 +91,8 @@ var agent = new ChatCompletionAgent
 
 Console.WriteLine("...completion Agent is ready.");
 
-// Create a history store the conversation
-var history = new ChatHistory();
+// Create a history store the conversation, however use ChatHistoryAgentThread instead of ChatHistory, which is deprecated
+var agentThread = new ChatHistoryAgentThread(); // new 
 
 // Initiate a back-and-forth chat
 string? userInput;
@@ -102,14 +106,13 @@ do
     // Check if userInput is not null before adding it to the chat history
     if (userInput != null)
     {
-        history.AddUserMessage(userInput);
+        var message = new ChatMessageContent(AuthorRole.User, userInput);
 
 #pragma warning disable SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-        await foreach (ChatMessageContent response in agent.InvokeAsync(history))
+
+        await foreach (ChatMessageContent response in agent.InvokeAsync(message: message, thread: agentThread))
         {
             Console.WriteLine($"{response.Content}");
-            // Add the message from the agent to the chat history
-            history.AddMessage(response.Role, response.Content ?? string.Empty);
         }
 #pragma warning restore SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
