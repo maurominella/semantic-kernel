@@ -57,6 +57,9 @@ internal class Program
         // Load the environment variables from the .env file
         Env.Load(envFilePath);
 
+        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {Env.GetString("AZURE_OPENAI_ENDPOINT")}\n" +
+            $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")}");
+
         // Instantiation of the Client for Azure OpenAI 
         AzureOpenAIClient openaiClient = OpenAIAssistantAgent.CreateAzureOpenAIClient(
             new AzureCliCredential(), new Uri(Env.GetString("AZURE_OPENAI_ENDPOINT")));
@@ -89,10 +92,6 @@ internal class Program
 
         // using the definition of a specific (new or existing) OpenAI Assistant, now we may directly instantiate an OpenAIAssistantAgent 
         var agent = new OpenAIAssistantAgent(definition: assistantDefinition, client: assistantClient, plugins: [lightsPlugin]);
-
-
-        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {Env.GetString("AZURE_OPENAI_ENDPOINT")}\n" +
-            $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")}");
 
         // Add enterprise logging components
         // TBI

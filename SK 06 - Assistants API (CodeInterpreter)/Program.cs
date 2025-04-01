@@ -1,15 +1,28 @@
 ﻿﻿// Copyright (c) Microsoft. All rights reserved.
 
+// Last update: March 31st, 2025
+
 // See https://aka.ms/new-console-template for more information
 
-// Import packages as shown with the following sample: 
-// https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-assistant-code?pivots=programming-language-csharp
-using System.Diagnostics;
+// OpenAIAssistantAgent is the KEY of this exercise 
+// Migration guide: https://learn.microsoft.com/en-us/semantic-kernel/support/migration/agent-framework-rc-migration-guide?pivots=programming-language-csharp
+// Docs: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/assistant-agent?pivots=programming-language-csharp
+// Class: https://learn.microsoft.com/en-us/dotnet/api/microsoft.semantickernel.agents.openai.openaiassistantagent?view=semantic-kernel-dotnet
+
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.44.0" />
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+
+// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.44.0-preview" />
 using Microsoft.SemanticKernel.Agents.OpenAI;
+
 using OpenAI.Files;
+
 using AgentsSample;
+using OpenAI.Assistants;
+using Azure.AI.OpenAI;
+using Azure.Identity;
+using System.Diagnostics;
 
 internal class Program
 {
@@ -23,53 +36,40 @@ internal class Program
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {settings.AzureOpenAI.Endpoint}\n" +
         $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {settings.AzureOpenAI.ChatModelDeployment}");
 
-        // Build the kernel WITHOUT using the builder since SK uses OpenAIClientProvider
-        var kernel = new Kernel(); // builder.Build();
-
-        // Add enterprise logging components
-        // TBI
-
-
-        // OpenAIClientProvider will be used for the Agent Definition as well as file-upload
-        var clientProviderForAzure = OpenAIClientProvider.ForAzureOpenAI(
-            apiKey: new System.ClientModel.ApiKeyCredential(settings.AzureOpenAI.ApiKey),
-            endpoint: new Uri(settings.AzureOpenAI.Endpoint));
-
-        // create a pointer to the file client provider
-        OpenAIFileClient fileClient = clientProviderForAzure.Client.GetOpenAIFileClient();
-
-        // Delete existing files
-        DeleteAllFiles(fileClient);
+        // Instantiation of the Client for Azure OpenAI 
+        AzureOpenAIClient openaiClient = OpenAIAssistantAgent.CreateAzureOpenAIClient(
+            new AzureCliCredential(), new Uri(settings.AzureOpenAI.Endpoint));
 
         // Upload files
         Console.WriteLine("\nUploading files...");
-        OpenAIFile fileDataCountryDetail = fileClient.UploadFile("./data/PopulationByAdmin1.csv", FileUploadPurpose.Assistants);
-        OpenAIFile fileDataCountryList = fileClient.UploadFile("./data/PopulationByCountry.csv", FileUploadPurpose.Assistants);
+        OpenAIFileClient fileClient = openaiClient.GetOpenAIFileClient();
+        OpenAIFile fileDataCountryDetail = await fileClient.UploadFileAsync("./data/PopulationByAdmin1.csv", FileUploadPurpose.Assistants);
+        OpenAIFile fileDataCountryList = await fileClient.UploadFileAsync("./data/PopulationByCountry.csv", FileUploadPurpose.Assistants);
         Console.WriteLine("...files were successfully uploaded.");
 
-        // Create the OpenAI Assistant Agent
-        Console.WriteLine("\nDefining Assistant Agent...");
+#pragma warning disable OPENAI001 // 'OpenAI.Assistants.AssistantClient' is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+        // Using the Azure OpenAI Client, now extract another Client for OpenAI Assistant Agent
+        AssistantClient assistantClient = openaiClient.GetAssistantClient();
+#pragma warning restore OPENAI001
+
+        // using the Client for OpenAI Assistant Agent, now either...
+        // ...EXTRACT the definition for a specific EXISTING OpenAI Assistant:
+        // var assistantDefinition = await assistantClient.GetAssistantAsync(assistantId: "");
+
+        //... or CREATE the definition for a NEW OpenAI Assistant:
         string agent_name = "mauromi_assistant_agent_c#";
         string instructions = "you are a clever agent";
 
-        OpenAIAssistantAgent agent =
-            await OpenAIAssistantAgent.CreateAsync(
-                clientProvider: clientProviderForAzure,
-                definition: new OpenAIAssistantDefinition(settings.AzureOpenAI.ChatModelDeployment)
-                {
-                    Name = agent_name,
-                    Instructions = instructions,
-                    EnableCodeInterpreter = true,
-                    EnableFileSearch = false,
-                    CodeInterpreterFileIds = [fileDataCountryList.Id, fileDataCountryDetail.Id]
-                },
-                kernel: kernel // empty kernel, with no associated plugins nor services
-                );
-        Console.WriteLine("...Assistant Agent is ready.");
+        var assistantDefinition = await assistantClient.CreateAssistantAsync(
+            modelId: settings.AzureOpenAI.ChatModelDeployment,
+            name: agent_name,
+            instructions: instructions,
+            enableCodeInterpreter: true // CODE INTERPRETER!
+        );
 
-        Console.WriteLine("\nCreating thread...");
-        string threadId = await agent.CreateThreadAsync();
-        Console.WriteLine("...thread was created.");
+        // using the definition of a specific (new or existing) OpenAI Assistant, now we may directly instantiate an OpenAIAssistantAgent 
+        var agent = new OpenAIAssistantAgent(definition: assistantDefinition, client: assistantClient);
+
 
         // Initiate a back-and-forth chat
         bool isComplete = false;
@@ -80,22 +80,25 @@ internal class Program
             do
             {
                 Console.WriteLine();
+                Console.WriteLine("Query example: create a 3D pie chart with the top 6 countries by population in Europe, showing absolute numbers");
                 Console.Write("User > ");
+
                 // Collect user input
                 userInput = Console.ReadLine();
+
                 if (string.IsNullOrWhiteSpace(userInput) || userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
                 {
                     isComplete = true;
                     break;
                 }
 
-                await agent.AddChatMessageAsync(threadId, new ChatMessageContent(AuthorRole.User, userInput));
+                var message = new ChatMessageContent(AuthorRole.User, userInput);
 
                 try
                 {
                     bool isCode = false;
-                    //await foreach (ChatMessageContent response in agent.InvokeAsync(threadId)) // InvokeStreamingAsync
-                    await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(threadId))
+                    //await foreach (ChatMessageContent response in agent.InvokeAsync(message: message)) // InvokeStreamingAsync
+                    await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(message: message))
                     {
                         if (isCode != (response.Metadata?.ContainsKey(OpenAIAssistantAgent.CodeInterpreterMetadataKey) ?? false))
                         {
@@ -130,12 +133,9 @@ internal class Program
             Console.WriteLine("Cleaning-up...");
             await Task.WhenAll(
                 [
-                    agent.DeleteThreadAsync(threadId),
-                    agent.DeleteAsync(),
-                    fileClient.DeleteFileAsync(fileDataCountryList.Id),
-                    fileClient.DeleteFileAsync(fileDataCountryDetail.Id)
+                    assistantClient.DeleteAssistantAsync(agent.Id),
                 ]);
-            DeleteAllFiles(fileClient);
+            await DeleteAllFilesAsync(fileClient);
         }
 
         if (isComplete)
@@ -144,22 +144,21 @@ internal class Program
         }
     }
 
-    private static void DeleteAllFiles(OpenAIFileClient fileClient)
+    private static async Task DeleteAllFilesAsync(OpenAIFileClient fileClient)
     {
-        var all_files = fileClient.GetFiles();
-        int i = 0;
-
+        var all_files = await fileClient.GetFilesAsync();
 
         Console.WriteLine("\nStart deleting files...");
+        int i = 0;
         foreach (var file in all_files.Value)
         {
-            Console.WriteLine(++i + ". Deleting " + file.Filename + "...");
-            fileClient.DeleteFile(file.Id);
+            Console.WriteLine($"{++i}. Deleting file {file.Filename} ({file.Id})...");
+            await fileClient.DeleteFileAsync(file.Id);
         }
 
         Console.WriteLine("..." + i + " file(s) deleted.");
-
     }
+
     // Helper function to remove duplicates from a string list, when it's built by a streaming function
     private static List<string> RemoveDuplicates(List<string> fileIds)
 
