@@ -25,7 +25,6 @@ using Azure.AI.OpenAI;
 using OpenAI.Assistants;
 using OpenAI.Files;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --> 
 
 
 #pragma warning disable SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
