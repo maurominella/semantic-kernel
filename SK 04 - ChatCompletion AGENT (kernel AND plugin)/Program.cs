@@ -63,7 +63,7 @@ kernel.Plugins.AddFromType<LightsPlugin>("Lights");
 
 // Enable planning
 // if "pure" OpenAI, please use OpenAIPromptExecutionSettings
-// in Python we have AzureChatPromptExecutionSettings
+// in Azure OpenAI, we have     AzureChatPromptExecutionSettings
 var azureOpenAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
 {
     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()

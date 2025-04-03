@@ -1,4 +1,4 @@
-﻿﻿// Copyright (c) Microsoft. All rights reserved.
+﻿// Copyright (c) Microsoft. All rights reserved.
 
 // Last update: March 31st, 2025
 
@@ -10,7 +10,7 @@
 // Docs: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/assistant-agent?pivots=programming-language-csharp
 // Class: https://learn.microsoft.com/en-us/dotnet/api/microsoft.semantickernel.agents.openai.openaiassistantagent?view=semantic-kernel-dotnet
 
-// dotnet new console -n "SK 07 - AI Foundry Agents with Semantic Kernel vs. AI Foundry SDK's"
+// dotnet new console -n "SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group)"
 
 // dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.45.0" />
 using Microsoft.SemanticKernel;
