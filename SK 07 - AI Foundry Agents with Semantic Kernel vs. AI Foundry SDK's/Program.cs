@@ -10,15 +10,22 @@
 // Docs: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/assistant-agent?pivots=programming-language-csharp
 // Class: https://learn.microsoft.com/en-us/dotnet/api/microsoft.semantickernel.agents.openai.openaiassistantagent?view=semantic-kernel-dotnet
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.44.0" />
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.45.0" />
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.44.0-preview" />
+// dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.45.0-preview" />
+using Microsoft.SemanticKernel.Agents.AzureAI;
+
+// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.45.0-preview" />
 using Microsoft.SemanticKernel.Agents.OpenAI;
 
+// dotnet add package Azure.AI.Projects --version 1.0.0-beta.3 --> <PackageReference Include="Azure.AI.Projects" Version="1.0.0-beta.3" />
+using Azure.AI.Projects; // Microsoft.SemanticKernel.Agents.AzureAI 1.44.0-preview requires Azure.AI.Projects (= 1.0.0-beta.3)
+
+// dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.13.2" />
 using Azure.Identity;
-using Microsoft.SemanticKernel.Agents.AzureAI;
+
 
 namespace LLMSettings;
 internal class Program
@@ -42,22 +49,25 @@ internal class Program
         Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
         aiagent_id = Console.ReadLine();
 
-            
-        Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent? sk_agent = await GenericCreateAgentAsync(
+        // Microsoft.SemanticKernel.Agents.AzureAI    
+        AzureAIAgent? sk_ai_agent = await GenericCreateAgentAsync(
             agent_type: "azure_aifoundry_agent",
             agent_name: "AnimalPicker",
             aiproject_connection_string: aiSettings.GetVariable("PROJECT_CONNECTION_STRING"),
             deployment_name: aiSettings.GetVariable("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
             bing_connection_name: aiSettings.GetVariable("BING_CONNECTION_NAME")
-            ) as Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent;
+            ) as AzureAIAgent;
 
-/*
-        // Test the AnimalPicker agent
-        Console.WriteLine("\n\nTest the single Agent \"AnimalPicker\" (an AI Foundry Agent), until you enter <exit>");
-        await ChatWithAgentAsync(agent: sk_animalpicker_agent, sk_project_client: sk_project_client);
-        Console.WriteLine($"Deleting the agent {sk_animalpicker_agent.Name} ({sk_animalpicker_agent.Id})...");
-        await sk_project_client.Client.GetAgentsClient().DeleteAgentAsync(agentId: sk_animalpicker_agent.Id);
-*/
+        try
+        {
+            await ChatWithAgentAsync(sk_ai_agent);
+        }
+        finally
+        {
+            Console.WriteLine($"\nDeleting agent {sk_ai_agent.Name}({sk_ai_agent.Id})...");
+            await sk_ai_agent.Client.DeleteAgentAsync(agentId: sk_ai_agent.Id);
+        }
+
         #endregion
     }
 
@@ -85,21 +95,23 @@ internal class Program
 
         if (agent_type == "azure_aifoundry_agent")
         {
-            // Semantic Kernel client for the AI Foundry PROJECT
-            Azure.AI.Projects.AIProjectClient sk_project_client = AzureAIAgent.CreateAzureAIClient(
+            // Semantic Kernel client for the AI Foundry PROJECT - library Azure.AI.Projects for AIProjectClient
+            AIProjectClient sk_project_client = AzureAIAgent.CreateAzureAIClient(
                 connectionString: aiproject_connection_string,
                 credential: new AzureCliCredential());
 
-            // Semantic Kernel AGENTS client
-            Azure.AI.Projects.AgentsClient sk_agents_client = sk_project_client.GetAgentsClient();
+            // Semantic Kernel AGENTS client from library Azure.AI.Projects
+            AgentsClient sk_agents_client = sk_project_client.GetAgentsClient();
 
             if (string.IsNullOrWhiteSpace(aiagent_id)) // if it's null, we create the agent
             {
-                List<Azure.AI.Projects.BingGroundingToolDefinition> tools = await CreateBingToolsAsync(
+                // Azure.AI.Projects library for BingGroundingToolDefinition and Agent
+                List<BingGroundingToolDefinition> tools = await CreateBingToolsAsync(
                     sk_project_client: sk_project_client, bing_connection_name: bing_connection_name);
 
                 // Semantic Kernel AGENT definition
-                Azure.AI.Projects.Agent sk_agent_definition = await sk_agents_client.CreateAgentAsync(
+                // library Azure.AI.Projects to create an Agent
+                Agent sk_agent_definition = await sk_agents_client.CreateAgentAsync(
                     model: deployment_name,
                     name: agent_name,
                     description: agent_name,
@@ -108,27 +120,27 @@ internal class Program
                 );
 
                 // Create Semantic Kernel AGENT, based on the agent definition (called "model" in this call)
-                var sk_agent = new Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent(
+                // library is Microsoft.SemanticKernel.Agents.AzureAI for AzureAIAgent
+                var sk_ai_agent = new AzureAIAgent(
                     model:sk_agent_definition, client:sk_agents_client);
-
                 
-                agent = sk_agent;
+                agent = sk_ai_agent;
             }
 
             else // load an existing agent whose id = aiagent_id
             {
-
                 Azure.AI.Projects.Agent sk_agent_definition = (await sk_agents_client.GetAgentAsync(assistantId: aiagent_id)).Value;
 
                 // Create Semantic Kernel AGENT, based on the agent definition (called "model" in this call)
-                var sk_agent = new Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent(
+                // library is Microsoft.SemanticKernel.Agents.AzureAI for AzureAIAgent
+                var sk_ai_agent = new AzureAIAgent(
                     model:sk_agent_definition, client:sk_agents_client);
 
-                agent = sk_agent;
+                agent = sk_ai_agent;
             }
         }
 
-        else if (agent_type == "sk_aifoundry_agent")
+        else if (agent_type != "sk_aifoundry_agent")
         {
 
             // Semantic Kernel SDK Agent. WE NEED TO "CLONE" THE AZURE AI AGENT TO CREATE THIS!!
@@ -140,10 +152,9 @@ internal class Program
         return agent;
     }
 
-/*
+
     // Single Chat function for all kinds of agents
-    private static async Task ChatWithAgentAsync(
-        object agent, Microsoft.SemanticKernel.Agents.AzureAI.AzureAIClientProvider? sk_project_client = null)
+    private static async Task ChatWithAgentAsync(object agent)
     {
         // Initiate a back-and-forth chat
         bool exit_chat = false;
@@ -161,31 +172,37 @@ internal class Program
                 break;
             }
 
-            // check if it's a AZURE AI agent
-            if (agent is Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent chatAgent)
+            // check if it's a Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent
+            if (agent is Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent sk_ai_agent)
+            // interacting with the agent: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/azure-ai-agent?pivots=programming-language-csharp#interacting-with-an-azureaiagent
+            // Interaction with the AzureAIAgent is straightforward. The agent maintains the conversation history automatically using a thread.
+            // The specifics of the Azure AI Agent thread is abstracted away via the AzureAIAgentThread class, which is an implementation of AgentThread.
             {
-                // create Thread
-                AgentThread my_thread = await sk_project_client.Client.GetAgentsClient().CreateThreadAsync();
-
-                await chatAgent.AddChatMessageAsync(
-                    threadId: my_thread.Id,
-                    message: new ChatMessageContent(AuthorRole.User, user_input));
+                // create thread - object is Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgentThread
+                var sk_ai_agent_thread = new AzureAIAgentThread(sk_ai_agent.Client);
 
                 try
                 {
                     bool isCode = false;
-                    //await foreach (ChatMessageContent response in chatAgent.InvokeAsync(threadId: my_thread.Id))
-                    await foreach (StreamingChatMessageContent response in chatAgent.InvokeStreamingAsync(threadId: my_thread.Id))
+                    // Microsoft.SemanticKernel.ChatMessageContent library for ChatMessageContent
+                    // Microsoft.SemanticKernel.ChatCompletion library for AuthorRole
+                    ChatMessageContent message = new(AuthorRole.User, user_input);
+
+                    // here we show both streaming and non-streaming versions
+                    // await foreach (ChatMessageContent response in sk_ai_agent.InvokeAsync(message: message, thread: sk_ai_agent_thread))
+                    await foreach (StreamingChatMessageContent response in sk_ai_agent.InvokeStreamingAsync(message: message, thread: sk_ai_agent_thread))
                     {
+                        // Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent.CodeInterpreterMetadataKey
                         if (isCode != (response.Metadata?.ContainsKey(OpenAIAssistantAgent.CodeInterpreterMetadataKey) ?? false))
                         {
                             Console.WriteLine();
                             isCode = !isCode;
                         }
                         // Display response.
-                        Console.Write($"{response.Content}");
+                        Console.Write(response.Content);
                     }
                 }
+
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error (but don't worry, we can continue ;-)): {ex.Message}");
@@ -193,17 +210,17 @@ internal class Program
                 }
                 finally
                 {
-                    Console.WriteLine($"\nDeleting thread {my_thread.Id}...");
+                    Console.WriteLine($"\nDeleting thread {sk_ai_agent_thread.Id}...");
 
                     await Task.WhenAll(
                         [
-                            sk_project_client.Client.GetAgentsClient().DeleteThreadAsync(threadId: my_thread.Id)
+                            sk_ai_agent_thread.DeleteAsync()
                         ]);
                 }
             }
         } while (!exit_chat);
     }
-*/
+
 
     // Helper function to create a Bing tool
     private static async Task<List<Azure.AI.Projects.BingGroundingToolDefinition>> CreateBingToolsAsync(
@@ -215,42 +232,18 @@ internal class Program
             return null;
         }
 
-        Azure.AI.Projects.ConnectionsClient cxnClient = sk_project_client.GetConnectionsClient();
-        Azure.AI.Projects.ConnectionResponse bingConnection = (await cxnClient.GetConnectionAsync(bing_connection_name)).Value;
+        // Azure.AI.Projects library for both ConnectionsClient and ConnectionResponse
+        ConnectionsClient cxnClient = sk_project_client.GetConnectionsClient();
+        ConnectionResponse bingConnection = (await cxnClient.GetConnectionAsync(bing_connection_name)).Value;
 
-        var connectionList = new Azure.AI.Projects.ToolConnectionList
+        // Azure.AI.Projects library for both ToolConnectionList and BingGroundingToolDefinition
+        var connectionList = new ToolConnectionList
         {
-            ConnectionList = { new Azure.AI.Projects.ToolConnection(bingConnection.Id) }
+            ConnectionList = { new ToolConnection(bingConnection.Id) }
         };
-        var bingGroundingTool = new Azure.AI.Projects.BingGroundingToolDefinition(connectionList);
-        var tools = new List<Azure.AI.Projects.BingGroundingToolDefinition>{bingGroundingTool};
+        var bingGroundingTool = new BingGroundingToolDefinition(connectionList);
+        var tools = new List<BingGroundingToolDefinition>{bingGroundingTool};
         return tools;
-    }
-
-    // Helper function to create a **SEMANTIC KERNEL** AI Foundry agent object
-    private static async Task<Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent> CreateAiFoundryAgentAsync(
-        Azure.AI.Projects.AIProjectClient sk_project_client,
-        string agent_name,
-        string deployment_name,
-        string connectedresource_name)
-    {
-
-        // Semantic Kernel AGENTS client
-        Azure.AI.Projects.AgentsClient sk_agents_client = sk_project_client.GetAgentsClient();
-
-        // Semantic Kernel AGENT definition
-        Azure.AI.Projects.Agent sk_agent_definition = await sk_agents_client.CreateAgentAsync(
-            model: deployment_name,
-            name: agent_name,
-            description: agent_name,
-            instructions: await ReadAgentInstructionsAsync(agentName: agent_name)
-        );
-
-        // Create Semantic Kernel AGENT, based on the agent definition (called "model" in this call)
-        var sk_agent = new Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent(
-            model:sk_agent_definition, client:sk_agents_client);
-
-        return sk_agent;
     }
 
 }
