@@ -6,13 +6,13 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.44.0" />
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.45.0" />
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.Core --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.44.0-preview" />
-using Microsoft.SemanticKernel.Agents;
+// dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.45.0" />
+using Microsoft.SemanticKernel.Agents; // needed for ChatCompletion
 
 using DotNetEnv;
 using AIPlugins;
@@ -53,7 +53,7 @@ Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {endpoint}\nAZURE_OPENAI_CHAT_DEPLOYM
 var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(modelId, endpoint, apiKey);
 
 // Use the kernel builder to add enterprise components (for logging, in this case)
-builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
+builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.None));
 
 // Build the kernel
 Kernel kernel = builder.Build();
@@ -80,7 +80,7 @@ string instructions = "you are a clever agent";
 Console.WriteLine("\nDefining completion Agent...");
 
 #pragma warning disable SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-var agent = new ChatCompletionAgent
+var sk_chatcompletion_agent = new ChatCompletionAgent
 {
     Name = agent_name,
     Instructions = instructions,
@@ -92,32 +92,37 @@ var agent = new ChatCompletionAgent
 Console.WriteLine("...completion Agent is ready.");
 
 // Create a history store the conversation, however use ChatHistoryAgentThread instead of ChatHistory, which is deprecated
-var agentThread = new ChatHistoryAgentThread(); // new 
+var sk_chatcompletionagent_thread = new ChatHistoryAgentThread(); // new 
 
 // Initiate a back-and-forth chat
-string? userInput;
+string? user_input;
 do
-#pragma warning disable CS8602 // Dereference of a possibly null reference.
+// #pragma warning disable CS8602 // Dereference of a possibly null reference.
 {
     // Collect user input
-    Console.Write("User > ");
-    userInput = Console.ReadLine();
+    Console.Write("\nUser > (ex: how can I cook a nice pizza?)");
+    user_input = Console.ReadLine();
 
     // Check if userInput is not null before adding it to the chat history
-    if (userInput != null)
+    if (!(string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)))
     {
-        var message = new ChatMessageContent(AuthorRole.User, userInput);
+        var message = new ChatMessageContent(AuthorRole.User, user_input);
 
-#pragma warning disable SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-
-        await foreach (ChatMessageContent response in agent.InvokeAsync(message: message, thread: agentThread))
+        // await foreach (ChatMessageContent response in sk_chatcompletion_agent.InvokeAsync(message: message, thread: sk_chatcompletionagent_thread))
+        await foreach (StreamingChatMessageContent response in sk_chatcompletion_agent.InvokeStreamingAsync(message: message, thread: sk_chatcompletionagent_thread))
         {
-            Console.WriteLine($"{response.Content}");
+            Console.Write($"{response.Content}");
         }
-#pragma warning restore SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-
     }
-} while (!string.IsNullOrWhiteSpace(userInput) && !userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
-#pragma warning restore CS8602 // Dereference of a possibly null reference.
+} while (!string.IsNullOrWhiteSpace(user_input) && !user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
+// #pragma warning restore CS8602 // Dereference of a possibly null reference.
+
+// delete the thread
+Console.WriteLine($"\nDeleting thread  id {sk_chatcompletionagent_thread.Id}...");
+await sk_chatcompletionagent_thread.DeleteAsync();
+
+// delete the agent
+Console.WriteLine($"\nDeleting agent {sk_chatcompletion_agent.Id}...");
+// await sk_chatcompletion_agent.DeleteAsync();
 
 Console.WriteLine("Application ends");
