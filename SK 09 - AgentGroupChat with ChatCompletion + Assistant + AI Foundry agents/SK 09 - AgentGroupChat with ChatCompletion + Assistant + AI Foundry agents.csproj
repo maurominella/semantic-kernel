@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>SK_09___AgentGroupChat_with_ChatCompletion___Assistant___AI_Foundry_agents</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);CA1031;CA1852;CS8602;CS8603;CS8604;CS8618;IDE0055;OPENAI001;SKEXP0110</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="agents/AnimalPicker.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="agents/Reviewer.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="agents/Writer.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="data/PopulationByAdmin.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="data/PopulationByCountry.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+
+    <PackageReference Include="Azure.AI.Projects" Version="1.0.0-beta.3" />
+    <PackageReference Include="Azure.Identity" Version="1.13.2" />
+    <PackageReference Include="DotNetEnv" Version="3.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="9.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3" />
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.45.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.45.0-preview" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.45.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.45.0-preview" />
+  </ItemGroup>
+
+</Project>
