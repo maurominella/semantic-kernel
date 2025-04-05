@@ -15,17 +15,16 @@ using MyApp.Plugins;
 // dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.13.2" />
 using Azure.Identity;
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.44.0" />
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.45.0" />
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.44.0-preview" />
+// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.45.0-preview" />
 using Microsoft.SemanticKernel.Agents.OpenAI;
 using Azure.AI.OpenAI;
 using OpenAI.Assistants;
 using OpenAI.Files;
-
-
+using OpenAI.VectorStores;
 
 #pragma warning disable SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
@@ -64,9 +63,30 @@ internal class Program
         AzureOpenAIClient openaiClient = OpenAIAssistantAgent.CreateAzureOpenAIClient(
             new AzureCliCredential(), new Uri(Env.GetString("AZURE_OPENAI_ENDPOINT")));
 
-        // just for testing: upload a file
+#pragma warning disable OPENAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+        VectorStoreClient storeClient = openaiClient.GetVectorStoreClient();
+        CreateVectorStoreOperation operation = await storeClient.CreateVectorStoreAsync(waitUntilCompleted: true);
+#pragma warning restore OPENAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
+        string storeId = operation.VectorStoreId;
+
+        // OpenAIAssistantFileSearch https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-assistant-search?pivots=programming-language-csharp
         OpenAIFileClient fileClient = openaiClient.GetOpenAIFileClient();
-        OpenAIFile fileInfo = await fileClient.UploadFileAsync("product_info_1.md", FileUploadPurpose.Assistants);
+
+        string[] s_files_to_search_in =
+        [
+            "trailmaster_product_info_1.md",
+        ];
+
+
+        Dictionary<string, OpenAIFile> fileReferences = [];
+        foreach (string f in s_files_to_search_in)
+        {
+            OpenAIFile fileInfo = await fileClient.UploadFileAsync(f, FileUploadPurpose.Assistants);
+            await storeClient.AddFileToVectorStoreAsync(storeId, fileInfo.Id, waitUntilCompleted: true);
+            fileReferences.Add(fileInfo.Id, fileInfo);
+        }
+
 
 #pragma warning disable OPENAI001 // 'OpenAI.Assistants.AssistantClient' is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
         // Using the Azure OpenAI Client, now extract another Client for OpenAI Assistant Agent
@@ -85,7 +105,9 @@ internal class Program
             modelId: Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
             name: agent_name,
             instructions: instructions,
-            enableCodeInterpreter: true
+            enableCodeInterpreter: true,
+            enableFileSearch: true,
+            vectorStoreId: storeId
         );
 
         KernelPlugin lightsPlugin = KernelPluginFactory.CreateFromType<LightsPlugin>();
@@ -96,6 +118,9 @@ internal class Program
         // Add enterprise logging components
         // TBI
 
+        // Create the conversation thread
+        Console.WriteLine("Creating thread...");
+        OpenAIAssistantAgentThread agentThread = new(client: assistantClient);
 
         // Initiate a back-and-forth chat
         bool isComplete = false;
@@ -105,7 +130,7 @@ internal class Program
             do
             {
                 Console.WriteLine();
-                Console.Write("User > ");
+                Console.Write("User (e.g. 'What is the sub category of the product TrailMaster X4 Tent?' or 'How many interior pockets does Trailmaster have?') > ");
                 // Collect user input
                 userInput = Console.ReadLine();
                 if (string.IsNullOrWhiteSpace(userInput))
@@ -122,7 +147,7 @@ internal class Program
 
                 try
                 {
-                    await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(message: message))
+                    await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(message: message, thread: agentThread))
                     {
                         // Display response.
                         Console.Write($"{response.Content}");
@@ -142,20 +167,39 @@ internal class Program
         }
         finally
         {
-            Console.WriteLine();
-            Console.WriteLine("Cleaning-up...");
-            var file_list = await fileClient.GetFilesAsync();
-            foreach (var f in file_list.Value)
+            Console.WriteLine("\nCleaning-up...");
+
+            // collect the thread messages: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/agent-streaming?pivots=programming-language-csharp
+            ChatMessageContent[] messages = await agentThread.GetMessagesAsync().ToArrayAsync();
+            int i = 0;
+            foreach (var message in messages.Reverse())
+            {
+                Console.WriteLine($"Message {++i}: {message.Content}");
+            }
+
+            Console.WriteLine($"Deleting thread {agentThread.Id}...");
+            await agentThread.DeleteAsync();
+
+            Console.WriteLine($"Deleting store {storeId}...");
+            await storeClient.DeleteVectorStoreAsync(storeId);
+
+            Console.WriteLine($"Deleting assistant {agent.Name} ({agent.Id})...");
+            await assistantClient.DeleteAssistantAsync(agent.Id);
+
+            foreach (var f in fileReferences.Values)
             {
                 Console.WriteLine($"Deleting file {f.Filename} ({f.Id})...");
                 await fileClient.DeleteFileAsync(f.Id);
             }
 
-            Console.WriteLine($"Deleting assistant {agent.Name} ({agent.Id})...");
-            await Task.WhenAll(
+            /* alternatively, asynchronously wait for all the tasks to complete before moving on to the next line of code
+            await Task.WhenAll( // The program will 
                 [
+                    agentThread.DeleteAsync(),
                     assistantClient.DeleteAssistantAsync(agent.Id),
+                    storeClient.DeleteVectorStoreAsync(storeId),
                 ]);
+            */
         }
 
         if (isComplete)
