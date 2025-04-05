@@ -43,7 +43,7 @@ internal class Program
         // Upload files
         Console.WriteLine("\nUploading files...");
         OpenAIFileClient fileClient = openaiClient.GetOpenAIFileClient();
-        OpenAIFile fileDataCountryDetail = await fileClient.UploadFileAsync("./data/PopulationByAdmin1.csv", FileUploadPurpose.Assistants);
+        OpenAIFile fileDataCountryDetail = await fileClient.UploadFileAsync("./data/PopulationByAdmin.csv", FileUploadPurpose.Assistants);
         OpenAIFile fileDataCountryList = await fileClient.UploadFileAsync("./data/PopulationByCountry.csv", FileUploadPurpose.Assistants);
         Console.WriteLine("...files were successfully uploaded.");
 

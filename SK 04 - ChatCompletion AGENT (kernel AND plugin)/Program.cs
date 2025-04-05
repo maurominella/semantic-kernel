@@ -52,6 +52,8 @@ Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {endpoint}\nAZURE_OPENAI_CHAT_DEPLOYM
 // Create the kernel builder with the pointer to Azure OpenAI
 var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(modelId, endpoint, apiKey);
 
+
+
 // Use the kernel builder to add enterprise components (for logging, in this case)
 builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.None));
 
@@ -100,7 +102,7 @@ do
 // #pragma warning disable CS8602 // Dereference of a possibly null reference.
 {
     // Collect user input
-    Console.Write("\nUser > (ex: how can I cook a nice pizza?)");
+    Console.Write("\nUser > (ex: 'First, toggle the porch light. After that, give me the status of all the lights.')");
     user_input = Console.ReadLine();
 
     // Check if userInput is not null before adding it to the chat history

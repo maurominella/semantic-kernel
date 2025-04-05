@@ -6,13 +6,20 @@
     <RootNamespace>SK_08___ChatCompletion___Assistant___AI_Foundry_agents__no_group_</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <NoWarn>$(NoWarn);CA1031;CA1852;CS8602;CS8603;CS8604;CS8618;IDE0055;SKEXP0110</NoWarn>
+    <NoWarn>$(NoWarn);CA1031;CA1852;CS8602;CS8603;CS8604;CS8618;IDE0055;OPENAI001;SKEXP0110</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="agents/AnimalPicker.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="data/PopulationByAdmin.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="data/PopulationByCountry.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+
     <PackageReference Include="Azure.AI.Projects" Version="1.0.0-beta.3" />
     <PackageReference Include="Azure.Identity" Version="1.13.2" />
     <PackageReference Include="DotNetEnv" Version="3.1.1" />

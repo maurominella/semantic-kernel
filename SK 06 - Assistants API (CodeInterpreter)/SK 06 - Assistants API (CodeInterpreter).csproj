@@ -21,7 +21,7 @@
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.44.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.44.0-preview" />
 
-    <None Include="data/PopulationByAdmin1.csv">
+    <None Include="data/PopulationByAdmin.csv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="data/PopulationByCountry.csv">

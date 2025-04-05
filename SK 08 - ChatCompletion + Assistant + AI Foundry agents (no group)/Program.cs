@@ -37,6 +37,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 
 using MyApp.Plugins;
+using Azure.AI.OpenAI;
+using OpenAI.Files;
+using OpenAI.Assistants;
+using System.Diagnostics;
 
 namespace LLMSettings;
 
@@ -62,12 +66,26 @@ internal class Program
         // library Microsoft.SemanticKernel.Agents for ChatCompletionAgent
         ChatCompletionAgent? sk_chatcompletion_agent = await GenericCreateAgentAsync(
             aiSettings: aiSettings,
-            agent_type: "azure_chatcompletion_agent",
-            agent_name: "AI_ChatCompletion_agent"
+            agent_type: "sk_chatcompletion_agent",
+            agent_name: "sk_chatcompletion_agent"
             ) as ChatCompletionAgent;
 
         // chat with the agent
         await ChatWithAgentAsync(sk_chatcompletion_agent);
+        #endregion
+
+        #region Semantic Kernel Assistant Agent
+        // library Microsoft.SemanticKernel.Agents.OpenAI for OpenAIAssistantAgent
+        OpenAIAssistantAgent? sk_assistant_agent = await GenericCreateAgentAsync(
+            aiSettings: aiSettings,
+            agent_type: "sk_assistant_agent",
+            agent_name: "sk_assistant_agent",
+            instructions: "You are a clever assistant"
+            ) as OpenAIAssistantAgent;
+
+
+        // chat with the agent
+        await ChatWithAgentAsync(sk_assistant_agent);
         #endregion
 
         #region Semantic Kernel AI Foundry Agent
@@ -78,7 +96,7 @@ internal class Program
         AzureAIAgent? sk_aifoundry_agent = await GenericCreateAgentAsync(
             aiSettings: aiSettings,
             bing_connection_name: aiSettings.GetVariable("BING_CONNECTION_NAME"),
-            agent_type: "azure_aifoundry_agent",
+            agent_type: "sk_aifoundry_agent",
             agent_name: "AnimalPicker" // this must match the name of the agent in the agents folder
             ) as AzureAIAgent;
 
@@ -99,7 +117,7 @@ internal class Program
 
         object? agent = null;
 
-        if (agent_type == "azure_chatcompletion_agent")
+        if (agent_type == "sk_chatcompletion_agent")
         {
             // Create the kernel builder with the pointer to Azure OpenAI
             var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
@@ -141,8 +159,35 @@ internal class Program
             };
             agent = sk_chatcompletion_agent;
         }
+        else if (agent_type == "sk_assistant_agent")
+        {
+            // Instantiation of the Client for Azure OpenAI 
+            // library Microsoft.SemanticKernel.Agents.OpenAI for OpenAIAssistantAgent
+            // library Azure.AI.OpenAI for AzureOpenAIClient
+            AzureOpenAIClient openaiClient = OpenAIAssistantAgent.CreateAzureOpenAIClient(
+                new AzureCliCredential(), new Uri(aiSettings.AzureOpenAI.Endpoint));
 
-        else if (agent_type == "azure_aifoundry_agent")
+            // library OpenAI.Files for OpenAIFileClient and OpenAIFile
+            OpenAIFileClient fileClient = openaiClient.GetOpenAIFileClient();
+            OpenAIFile fileDataCountryDetail = await fileClient.UploadFileAsync("./data/PopulationByAdmin.csv", FileUploadPurpose.Assistants);
+            OpenAIFile fileDataCountryList = await fileClient.UploadFileAsync("./data/PopulationByCountry.csv", FileUploadPurpose.Assistants);
+
+            // Using the Azure OpenAI Client, now extract another Client for OpenAI Assistant Agent
+            AssistantClient assistantClient = openaiClient.GetAssistantClient();
+            
+            var assistantDefinition = await assistantClient.CreateAssistantAsync(
+                modelId: aiSettings.AzureOpenAI.ChatModelDeployment,
+                name: agent_name,
+                instructions: instructions,
+                enableCodeInterpreter: true // CODE INTERPRETER!
+            );
+
+            // using the definition of a specific (new or existing) OpenAI Assistant, now we may directly instantiate an OpenAIAssistantAgent 
+            var sk_assistant_agent = new OpenAIAssistantAgent(definition: assistantDefinition, client: assistantClient);
+
+            agent = sk_assistant_agent;
+        }
+        else if (agent_type == "sk_aifoundry_agent")
         {
             // Semantic Kernel client for the AI Foundry PROJECT - library Azure.AI.Projects for AIProjectClient
             AIProjectClient sk_project_client = AzureAIAgent.CreateAzureAIClient(
@@ -189,6 +234,7 @@ internal class Program
             }
         }
 
+
         return agent;
     }
 
@@ -226,6 +272,7 @@ internal class Program
                         // Microsoft.SemanticKernel.ChatMessageContent library for ChatMessageContent
                         // Microsoft.SemanticKernel.ChatCompletion library for AuthorRole
                         ChatMessageContent message = new(AuthorRole.User, user_input);
+
                         // here we show both streaming and non-streaming versions
                         // await foreach (ChatMessageContent response in sk_ai_agent.InvokeAsync(message: message, thread: sk_ai_agent_thread))
                         await foreach (StreamingChatMessageContent response in sk_chatcompletion_agent.InvokeStreamingAsync(message: message, thread: sk_chatcompletionagent_thread))
@@ -254,6 +301,61 @@ internal class Program
                             [
                                 sk_chatcompletionagent_thread.DeleteAsync()
                             ]);
+                    }
+                }
+                else if (agent is Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent sk_assistant_agent)
+                {                     
+                    List<string> files_to_download = [];
+                    try
+                    {
+                        bool isCode = false;
+
+                        // Microsoft.SemanticKernel.ChatMessageContent library for ChatMessageContent
+                        // Microsoft.SemanticKernel.ChatCompletion library for AuthorRole
+                        ChatMessageContent message = new(AuthorRole.User, user_input);
+
+                        // here we show both streaming and non-streaming versions
+                        // await foreach (ChatMessageContent response in sk_ai_agent.InvokeAsync(message: message, thread: sk_ai_agent_thread))
+                        await foreach (StreamingChatMessageContent response in sk_assistant_agent.InvokeStreamingAsync(message: message))
+                        {
+                            // Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent.CodeInterpreterMetadataKey
+                            if (isCode != (response.Metadata?.ContainsKey(OpenAIAssistantAgent.CodeInterpreterMetadataKey) ?? false))
+                            {
+                                Console.WriteLine();
+                                isCode = !isCode;
+                            }
+                            // Display response.
+                            Console.Write(response.Content);
+
+                            // Capture file IDs for downloading
+                            files_to_download.AddRange(response.Items.OfType<StreamingFileReferenceContent>().Select(item => item.FileId));
+                        }
+                    }
+
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error (but don't worry, we can continue ;-)): {ex.Message}");
+                        exit_chat = true;
+                    }
+
+                    // this code is always guaranteed to execute, regardless of whether an exception is thrown
+                    finally
+                    {
+                        files_to_download = RemoveDuplicates(files_to_download);
+                        Console.WriteLine($"\nDeleting assistant {sk_assistant_agent.Name} ({sk_assistant_agent.Id})...");
+                        
+                        await Task.WhenAll(
+                            [
+                                sk_assistant_agent.Client.DeleteAssistantAsync(assistantId: sk_assistant_agent.Id),
+                            ]);
+
+                        var x = sk_assistant_agent.Definition;
+                        // WE NEED TO RETRIEVE THE AzureOpenAIClient object from the OpenAIAssistantAgent static class!!
+
+
+                        // Download any files referenced in the response
+                        // await DownloadResponseAsync(sk_assistant_agent, fileIds: fileIds);
+                        files_to_download.Clear();
                     }
                 }
                 // is it an AI Foundry agent (e.g. Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent)?
@@ -292,6 +394,7 @@ internal class Program
                         Console.WriteLine($"Error (but don't worry, we can continue ;-)): {ex.Message}");
                         exit_chat = true;
                     }
+
                     finally
                     {
                         Console.WriteLine($"\nDeleting thread {sk_ai_agent_thread.Id}...");
@@ -335,7 +438,12 @@ internal class Program
         string hint="";
         if (agent is Microsoft.SemanticKernel.Agents.ChatCompletionAgent sk_chatcompletion_agent)
         {
-            hint = $"agent <{sk_chatcompletion_agent.Name}> of type <ChatCompletionAgent>, e.g. 'Toggle the porch light and give me the status of all the lights.'";
+            hint = $"agent <{sk_chatcompletion_agent.Name}> of type <ChatCompletionAgent>, e.g. 'Toggle the porch light and give me the status of all the lights'";
+        }
+        
+        else if (agent is Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent sk_assistant_agent)
+        {
+            hint = $"agent <{sk_assistant_agent.Name}> of type <OpenAIAssistantAgent>, e.g. 'Create a 3D pie chart with the top 6 countries by population in Europe, showing absolute numbers'";
         }
         else if (agent is Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent sk_ai_agent)
         {
@@ -370,5 +478,59 @@ internal class Program
         var bingGroundingTool = new BingGroundingToolDefinition(connectionList);
         var tools = new List<BingGroundingToolDefinition>{bingGroundingTool};
         return tools;
+    }
+
+    // Helper function to remove duplicates from a string list, when it's built by a streaming function
+    private static List<string> RemoveDuplicates(List<string> fileIds)
+    {
+        // Using HashSet to remove duplicates
+        var uniqueFileIds = new HashSet<string>(fileIds);
+
+        // Converting HashSet back to List
+        return uniqueFileIds.ToList();
+    }
+
+    // Helper function to coordingate the download of all files
+    private static async Task DownloadResponseAsync(ICollection<string> fileIds)
+    {
+        if (fileIds.Count > 0)
+        {
+            Console.WriteLine();
+            foreach (string fileId in fileIds)
+            {
+                // await DownloadSingleFileContentAsync(client, fileId, launchViewer: true);
+            }
+        }
+    }
+
+    // Helper function to download a SINGLE file from OpenAI
+    private static async Task DownloadSingleFileContentAsync(OpenAIFileClient client, string fileId, bool launchViewer = false)
+    {
+        OpenAIFile fileInfo = client.GetFile(fileId);
+        if (fileInfo.Purpose == FilePurpose.AssistantsOutput)
+        {
+            string filePath =
+                Path.Combine(
+                    Path.GetTempPath(),
+                    Path.GetFileName(Path.ChangeExtension(fileInfo.Filename, ".png")));
+
+            if (!File.Exists(filePath))
+            {
+                BinaryData content = await client.DownloadFileAsync(fileId);
+                await using FileStream fileStream = new(filePath, FileMode.CreateNew);
+                await content.ToStream().CopyToAsync(fileStream);
+                Console.WriteLine($"File saved to: {filePath}.");
+            }
+
+            if (launchViewer)
+            {
+                Process.Start(
+                    new ProcessStartInfo
+                    {
+                        FileName = "cmd.exe",
+                        Arguments = $"/C start {filePath}"
+                    });
+            }
+        }
     }
 }
