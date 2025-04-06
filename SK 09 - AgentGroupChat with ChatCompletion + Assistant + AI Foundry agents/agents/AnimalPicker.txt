@@ -8,4 +8,4 @@
 - Do **NOT** return any citations or sources.
 
 ** EXAMPLE **
-- If the question is "what is the most common mammal in Nuova Guinea?", you must do a WEB search and return "kangaroo".
+- If the question is "what is the most common mammal in Nuova Guinea?", you must do a WEB search and may return "kangaroo".

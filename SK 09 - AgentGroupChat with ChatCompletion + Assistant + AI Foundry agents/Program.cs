@@ -1,7 +1,7 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
-// Last update: March 31st, 2025
-
+// Last update: April 2025
+# region libraries
 // See https://aka.ms/new-console-template for more information
 
 // Microsoft.SemanticKernel.Agents.AzureAI library documentation: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/azure-ai-agent?pivots=programming-language-csharp
@@ -41,17 +41,18 @@ using Azure.AI.OpenAI;
 using OpenAI.Files;
 using OpenAI.Assistants;
 using System.Diagnostics;
+using Microsoft.SemanticKernel.Agents.Chat;
 
 namespace LLMSettings;
+#endregion
 
 internal class Program
 {
-    private static string? s_aiagent_id = null; //"asst_8tFjVkAnFiqSwukxKypuTdwg"
+    private static string? s_aiagent_id = null; // e.g. "asst_8tFjVkAnFiqSwukxKypuTdwg"
 
     private static async Task Main(string[] args)
     {
         #region Environment Configuration
-
         Console.WriteLine("Application starts");
 
         // Load configuration from environment variables or user secrets.
@@ -61,6 +62,68 @@ internal class Program
         $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {ai_settings.AzureOpenAI.ChatModelDeployment}");
         #endregion
 
+        #region AnimalPicker (SK AI Foundry Agent with Bing Grounding Tool)
+        Console.WriteLine("\n\n\n+++++++++++++++++ AnimalPicker (AI Foundry Agent with Bing Grounding Tool) +++++++++++++++++\n");
+        Console.Write("\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
+        s_aiagent_id = Console.ReadLine();
+
+        // Microsoft.SemanticKernel.Agents.AzureAI    
+        AzureAIAgent? animalpicker_agent = await GenericCreateAgentAsync(
+            ai_settings: ai_settings,
+            bing_connection_name: ai_settings.GetVariable("BING_CONNECTION_NAME"),
+            agent_type: "sk_aifoundry_agent",
+            agent_name: "AnimalPicker" // this must match the name of the agent in the agents folder
+            ) as AzureAIAgent;
+
+        // chat with the agent
+        var animalpicker_response = await ChatWithAgentAsync(agent: animalpicker_agent, delete_agent_after_chat: false);
+        #endregion
+
+        #region AnimalJoker (SK ChatCompletion Agent)
+        Console.WriteLine("\n\n\n+++++++++++++++++ AnimalJoker (SK ChatCompletion Agent) +++++++++++++++++\n");
+
+        // library Microsoft.SemanticKernel.Agents for ChatCompletionAgent
+        ChatCompletionAgent? animaljoker_agent = await GenericCreateAgentAsync(
+            ai_settings: ai_settings,
+            agent_type: "sk_chatcompletion_agent",
+            agent_name: "AnimalJoker"
+            ) as ChatCompletionAgent;
+
+        // chat with the agent
+        var animaljoker_response = await ChatWithAgentAsync(agent: animaljoker_agent, delete_agent_after_chat: false);
+        #endregion
+
+        #region Statistician (SK with CodeInterpreter)
+        Console.WriteLine("\n\n\n+++++++++++++++++ Statistician (SDK Assistant Agent with CodeInterpreter) +++++++++++++++++\n");
+
+        // In this case, I do NOT use FileSearch tool. If you need it, there is an OpenAIAssistantAgent sample here below
+
+        // library Microsoft.SemanticKernel.Agents.OpenAI for OpenAIAssistantAgent
+        OpenAIAssistantAgent? statistician_agent = await GenericCreateAgentAsync(
+            ai_settings: ai_settings,
+            agent_type: "sk_assistant_agent",
+            agent_name: "Statistician",
+            enableCodeInterpreter: true
+            ) as OpenAIAssistantAgent;
+
+        // chat with the agent
+        var statistician_response = await ChatWithAgentAsync(agent: statistician_agent, ai_settings: ai_settings, delete_agent_after_chat: false);
+        #endregion
+
+        #region Reviewer (SK ChatCompletion Agent)
+        Console.WriteLine("\n\n\n+++++++++++++++++ Reviewer (SK ChatCompletion Agent) +++++++++++++++++\n");
+
+        // library Microsoft.SemanticKernel.Agents for ChatCompletionAgent
+        ChatCompletionAgent? reviewer_agent = await GenericCreateAgentAsync(
+            ai_settings: ai_settings,
+            agent_type: "sk_chatcompletion_agent",
+            agent_name: "Reviewer"
+            ) as ChatCompletionAgent;
+
+        // chat with the agent
+        var reviewer_response = await ChatWithAgentAsync(agent: reviewer_agent, delete_agent_after_chat: false);
+        #endregion
+/*
         #region Semantic Kernel ChatCompletion Agent with Plugin
         Console.WriteLine("\n\n\n+++++++++++++++++ Semantic Kernel ChatCompletion Agent with Plugin +++++++++++++++++\n");
 
@@ -75,8 +138,7 @@ internal class Program
         await ChatWithAgentAsync(sk_chatcompletion_agent);
         #endregion
 
-        #region Semantic Kernel Assistant Agent (including CodeInterpreter)
-
+        #region Semantic Kernel Assistant Agent with CodeInterpreter and FileClient
         Console.WriteLine("\n\n\n+++++++++++++++++ Semantic Kernel Assistant Agent +++++++++++++++++\n");
 
         System.Collections.Generic.List<string> files_to_search_in = [];
@@ -92,27 +154,21 @@ internal class Program
             enableCodeInterpreter: true
             ) as OpenAIAssistantAgent;
 
-
         // chat with the agent
         await ChatWithAgentAsync(sk_assistant_agent, ai_settings: ai_settings);
         #endregion
+*/
+        #region GroupCahtAgent (SK Microsoft.SemanticKernel.Agents.AgentGroupChat)
+        Console.WriteLine("\n\n\n+++++++++++++++++ GroupCahtAgent (SK GroupCahtAgent Agent) +++++++++++++++++\n");
+        var sk_groupchat_agent = GroupCathCreateAgentAsync(
+            animalpicker_agent: animalpicker_agent, animaljoker_agent: animaljoker_agent, 
+            statistician_agent:statistician_agent, reviewer_agent: reviewer_agent, ai_settings: ai_settings);
 
-        #region Semantic Kernel AI Foundry Agent
-        Console.WriteLine("\n\n\n+++++++++++++++++ Semantic Kernel AI Foundry Agent +++++++++++++++++\n");
-        Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
-        s_aiagent_id = Console.ReadLine();
-
-        // Microsoft.SemanticKernel.Agents.AzureAI    
-        AzureAIAgent? sk_aifoundry_agent = await GenericCreateAgentAsync(
-            ai_settings: ai_settings,
-            bing_connection_name: ai_settings.GetVariable("BING_CONNECTION_NAME"),
-            agent_type: "sk_aifoundry_agent",
-            agent_name: "AnimalPicker" // this must match the name of the agent in the agents folder
-            ) as AzureAIAgent;
-
-        // chat with the agent
-        await ChatWithAgentAsync(agent: sk_aifoundry_agent);
+        var groupchat_response = await ChatWithAgentAsync(agent: sk_groupchat_agent, delete_agent_after_chat: false); 
         #endregion
+        
+        
+        Console.WriteLine("\nApplication ends");
     }
 
 
@@ -126,6 +182,12 @@ internal class Program
         // - to create a Semantic Kernel SDK object, two steps are needed: Azure AI Foundry SDK object + SK object that relies on the Azure SDK object
 
         object? agent = null;
+
+        // Provided instructions take the precedence of the ones stored in the agent's file
+        if (string.IsNullOrWhiteSpace(instructions))
+        {
+            instructions = await ReadAgentInstructionsAsync(agent_name: agent_name);
+        }
 
         if (agent_type == "sk_chatcompletion_agent")
         {
@@ -143,21 +205,7 @@ internal class Program
             // Build the kernel
             Kernel kernel = builder.Build();
 
-            // Add a plugin (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
-            kernel.Plugins.AddFromType<LightsPlugin>("Lights");
-            
-            // Enable planning
-            // library Microsoft.SemanticKernel + Microsoft.SemanticKernel.Connectors.AzureOpenAI
-            var azureOpenAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
-            };
-
-            var kernelArguments = new KernelArguments(azureOpenAIPromptExecutionSettings)
-            // optional
-            {
-                { "repository", "microsoft/semantic-kernel" }
-            };
+            // In this case, I do NOT use plugins. If you need any, there is a ChatCompletionAgent sample with plugins here below
 
             // library Microsoft.SemanticKernel.Agents for ChatCompletionAgent
             var sk_chatcompletion_agent = new ChatCompletionAgent
@@ -165,7 +213,7 @@ internal class Program
                 Name = agent_name,
                 Instructions = instructions,
                 Kernel = kernel,
-                Arguments = kernelArguments ?? new KernelArguments() // Provide a default value if kernelArguments is null
+                Arguments = new KernelArguments() // Provide a default value if kernelArguments is null
             };
             agent = sk_chatcompletion_agent;
         }
@@ -179,7 +227,7 @@ internal class Program
 
             // library OpenAI.Files for OpenAIFileClient and OpenAIFile
             OpenAIFileClient fileClient = openaiClient.GetOpenAIFileClient();
-            foreach (string file_path in files_to_search_in)
+            foreach (string file_path in files_to_search_in ?? new System.Collections.Generic.List<string>())
             {
                 await fileClient.UploadFileAsync(file_path, FileUploadPurpose.Assistants);
             }
@@ -221,7 +269,7 @@ internal class Program
                     model: ai_settings.AzureOpenAI.ChatModelDeployment,
                     name: agent_name,
                     description: agent_name,
-                    instructions: await ReadAgentInstructionsAsync(agentName: agent_name),
+                    instructions: instructions,
                     tools: tools
                 );
 
@@ -246,16 +294,115 @@ internal class Program
             }
         }
 
-
         return agent;
     }
 
+
+    // Library Microsoft.SemanticKernel.Agents for AgentGroupChat
+    private static Microsoft.SemanticKernel.Agents.AgentGroupChat GroupCathCreateAgentAsync(AzureAIAgent animalpicker_agent, ChatCompletionAgent? animaljoker_agent, 
+    OpenAIAssistantAgent? statistician_agent, ChatCompletionAgent? reviewer_agent, AISettings ai_settings)
+    {
+         // AGENT GROUP CHAT PREPARATION
+
+        // "Termination" kernel function that responds "yes" if the last message is satisfactory
+        const string TerminationToken = "yes";
+        KernelFunction terminationFunction =
+            AgentGroupChat.CreatePromptFunctionForStrategy(
+                $$$"""
+                Examine the RESPONSE and determine whether the content has been deemed satisfactory.
+                If content is satisfactory, respond with a single word without explanation: {{{TerminationToken}}}.
+                If specific suggestions are being provided, it is not satisfactory.
+                If it's made of a single word, it's not satisfactory.
+                If it has more than one word and no correction is suggested, it is satisfactory.
+
+                RESPONSE:
+                {{$lastmessage}}
+                """,
+
+                safeParameterNames: "lastmessage");
+       
+        // "Selection" kernel function that receives the last message and responds the name of the next participant
+        KernelFunction selectionFunction =
+            AgentGroupChat.CreatePromptFunctionForStrategy(
+                $$$"""
+                Examine the provided RESPONSE and generate **EXCLUSIVELY A SINGLE WORD** with the name of the next participant.
+
+                Choose only from these participants:
+                - {{{animalpicker_agent.Name}}}
+                - {{{animaljoker_agent.Name}}}
+                - {{{statistician_agent.Name}}}
+                - {{{reviewer_agent.Name}}}
+
+                Always follow these rules when choosing the next participant:
+                - If RESPONSE is user input, it is {{{animalpicker_agent.Name}}}'s turn.
+                - If RESPONSE is by {{{animalpicker_agent.Name}}}, it is {{{animaljoker_agent.Name}}}'s turn.
+                - If RESPONSE is by {{{animaljoker_agent.Name}}}, it is {{{statistician_agent.Name}}}'s turn.
+                - If RESPONSE is by {{{statistician_agent.Name}}}, it is {{{reviewer_agent.Name}}}'s turn.
+
+                RESPONSE:
+                {{$lastmessage}}
+                """,
+
+                safeParameterNames: "lastmessage");
+        
+         // history reducer that extracts the last message from the history
+        var historyReducer = new ChatHistoryTruncationReducer(targetCount: 1);
+
+        // Create the kernel builder with the pointer to Azure OpenAI
+        var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
+            deploymentName: ai_settings.AzureOpenAI.ChatModelDeployment,
+            endpoint: ai_settings.AzureOpenAI.Endpoint,
+            apiKey: ai_settings.AzureOpenAI.ApiKey
+            );
+
+        // Use the kernel builder to add enterprise components (for logging, in this case)
+        // library  Microsoft.Extensions.Logging
+        builder.Services.AddLogging(services => services.SetMinimumLevel(LogLevel.None));
+
+        // Build the kernel
+        Kernel kernel = builder.Build();
+
+
+         // create the Group Chat Agent
+        var groupChatAgent = new AgentGroupChat(animaljoker_agent, statistician_agent, reviewer_agent)
+        {
+            // library Microsoft.SemanticKernel.Agents.Chat for AgentGroupChatSettings
+            ExecutionSettings = new AgentGroupChatSettings
+            {
+                TerminationStrategy = new KernelFunctionTerminationStrategy(function: terminationFunction, kernel: kernel)
+                {
+                    Agents = [reviewer_agent], // Only evaluate for editor's response
+                    HistoryReducer = historyReducer, // Save tokens by only including the final response
+                    HistoryVariableName = "lastmessage", // The prompt variable name for the history argument.
+                    // Customer result parser to determine if the response is "yes":
+                    ResultParser = (result) => result.GetValue<string>()?.Contains(TerminationToken, StringComparison.OrdinalIgnoreCase) ?? false,
+                    MaximumIterations = 20, // Limit total number of turns
+                },
+
+                SelectionStrategy = new KernelFunctionSelectionStrategy(function: selectionFunction, kernel: kernel)
+                {
+                    InitialAgent = reviewer_agent, // Always start with the editor agent.
+                    HistoryReducer = historyReducer, // Save tokens by only including the final response
+                    HistoryVariableName = "lastmessage", // The prompt variable name for the history argument.
+
+                    // Returns the entire result value as a string
+                    // "nullish coalescing" (??) operator returns the left value if not null/undefined; otherwise it returns the value on the right
+                    ResultParser = (result) => result.GetValue<string>() ?? statistician_agent.Name
+                }
+            }
+        };
+
+        return groupChatAgent;
+    }
+
+
     // Single function to chat with any kind of agent
-    private static async Task ChatWithAgentAsync(object agent, AISettings? ai_settings = null)
+    private static async Task<string> ChatWithAgentAsync(object agent, AISettings? ai_settings = null, bool delete_agent_after_chat = true)
     {
         // Initiate a back-and-forth chat
         bool exit_chat = false;
         string? user_input;
+        string? agent_response="";
 
         try 
         {
@@ -304,6 +451,7 @@ internal class Program
                             }
                             // Display response.
                             Console.Write(response.Content);
+                            agent_response += response.Content;
                         }
                     }
 
@@ -315,7 +463,7 @@ internal class Program
                     
                     finally
                     {
-                        Console.Write($"\nEnter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive > ");
+                        Console.Write($"\nThere are some messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive.");
                         var clear_history = Console.ReadLine();
                         if (!string.IsNullOrWhiteSpace(clear_history))
                         {
@@ -360,6 +508,7 @@ internal class Program
                             }
                             // Display response.
                             Console.Write(response.Content);
+                            agent_response += response.Content;
 
                             // Capture file IDs for downloading
                             files_to_download.AddRange(response.Items.OfType<StreamingFileReferenceContent>().Select(item => item.FileId));
@@ -378,7 +527,6 @@ internal class Program
                         files_to_download = RemoveDuplicates(files_to_download);
 
                         // WE NEED TO RETRIEVE THE AzureOpenAIClient object, and use it to retrieve the OpenAIFileClient
-
                         // library Microsoft.SemanticKernel.Agents.OpenAI for OpenAIAssistantAgent
                         // library Azure.AI.OpenAI for AzureOpenAIClient
                         AzureOpenAIClient openaiClient = OpenAIAssistantAgent.CreateAzureOpenAIClient(
@@ -395,14 +543,14 @@ internal class Program
                         // just for testing
                         ChatMessageContent[] messages = await sk_assistant_thread.GetMessagesAsync().ToArrayAsync();
 
-                        int msgNumber=0;
+                        int messages_count=0;
                         await foreach (var message in sk_assistant_thread.GetMessagesAsync())
                         {
-                            msgNumber++;
+                            messages_count++;
                         }
 
                         // We need a carriage return after a simple Write operation executed with the streaming method
-                        Console.Write($"\nThere are {msgNumber} messages. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive.");
+                        Console.Write($"\nThere are {messages_count} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive.");
                         var clear_history = Console.ReadLine();
                         if (!string.IsNullOrWhiteSpace(clear_history))
                         {
@@ -444,6 +592,7 @@ internal class Program
                             }
                             // Display response.
                             Console.Write(response.Content);
+                            agent_response += response.Content;
                         }
                     }
 
@@ -458,14 +607,14 @@ internal class Program
                         // collect the thread messages: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/agent-streaming?pivots=programming-language-csharp
                         ChatMessageContent[] messages = await sk_aiagent_thread.GetMessagesAsync().ToArrayAsync();
 
-                        int msg_count=0; // count the nr of messages we have in the thread
+                        int messages_count=0; // count the nr of messages we have in the thread
                         await foreach (var message in sk_aiagent_thread.GetMessagesAsync())
                         {
-                            msg_count++;
+                            messages_count++;
                         }
 
                         // We need a carriage return after a simple Write operation executed with the streaming method
-                        Console.Write($"\nThere are {msg_count} messages. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive > ");
+                        Console.Write($"\nThere are {messages_count} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive.");
                         var clear_history = Console.ReadLine();
                         if (!string.IsNullOrWhiteSpace(clear_history))
                         {
@@ -477,34 +626,81 @@ internal class Program
                         }
                     }
                 }
+                // is it a GROUP CHAT agent (e.g. Microsoft.SemanticKernel.Agents.AgentGroupChat)?
+                else if (agent is AgentGroupChat sk_groupchat_agent)
+                {
+                    var author_name = ""; // used in the streaming to check when the author changes
+                    List<string> files_to_download = [];
+                    sk_groupchat_agent.AddChatMessage(new ChatMessageContent(AuthorRole.User, user_input));
+                    await foreach (StreamingChatMessageContent response in sk_groupchat_agent.InvokeStreamingAsync())
+                    //await foreach (ChatMessageContent response in groupAgent.InvokeAsync())
+                    {
+                        // Add the message from the agent to the chat history
+                        //Console.WriteLine($"# {response.Role} - {response.AuthorName ?? "*"}: '{response.Content}'");
+                        if (response.AuthorName != author_name)
+                        {
+                            Console.WriteLine($"\n\n### New turn: {response.Role} - {response.AuthorName ?? "*"}:\n");
+                            author_name = response.AuthorName;
+                        }
+                        Console.Write(response.Content);
+                        agent_response += response.Content;
+
+                        // Capture file IDs for downloading
+                        files_to_download.AddRange(response.Items.OfType<StreamingFileReferenceContent>().Select(item => item.FileId));
+                    }
+                    files_to_download = RemoveDuplicates(files_to_download);
+                    Console.WriteLine();
+
+                    // WE NEED TO RETRIEVE THE AzureOpenAIClient object, and use it to retrieve the OpenAIFileClient
+                    // library Microsoft.SemanticKernel.Agents.OpenAI for OpenAIAssistantAgent
+                    // library Azure.AI.OpenAI for AzureOpenAIClient
+                    AzureOpenAIClient openaiClient = OpenAIAssistantAgent.CreateAzureOpenAIClient(
+                        new AzureCliCredential(), new Uri(ai_settings.AzureOpenAI.Endpoint));
+
+                    OpenAIFileClient file_client = openaiClient.GetOpenAIFileClient();
+
+                    // Download any files referenced in the response
+                    await DownloadResponseAsync(file_client: file_client, files_to_download: files_to_download);
+                    files_to_download.Clear();
+
+                    files_to_download.Clear();
+                    Console.WriteLine();
+                    exit_chat = exit_chat || sk_groupchat_agent.IsComplete;
+                }
 
             } while (!exit_chat);
         }
 
         finally
         {
-            if (agent is Microsoft.SemanticKernel.Agents.ChatCompletionAgent sk_chatcompletion_agent)
+            if (delete_agent_after_chat && agent is Microsoft.SemanticKernel.Agents.ChatCompletionAgent sk_chatcompletion_agent)
             {
                 Console.WriteLine($"ChatCompletion agent {sk_chatcompletion_agent.Name}({sk_chatcompletion_agent.Id}) is automatically destroyed");                
             }
-            else if ((agent is Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent sk_assistant_agent))
+            else if (delete_agent_after_chat && agent is Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent sk_assistant_agent)
             {
                 Console.WriteLine($"Deleting assistant {sk_assistant_agent.Name} ({sk_assistant_agent.Id})...");
                 await sk_assistant_agent.Client.DeleteAssistantAsync(assistantId: sk_assistant_agent.Id);
-            }            
-            else if (agent is Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent sk_ai_agent)
+            }
+            else if (delete_agent_after_chat && agent is Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent sk_ai_agent)
             {
                 Console.WriteLine($"Deleting agent {sk_ai_agent.Name}({sk_ai_agent.Id})...");
                 await sk_ai_agent.Client.DeleteAgentAsync(agentId: sk_ai_agent.Id);
-            }            
+            }
+            else if (delete_agent_after_chat && agent is Microsoft.SemanticKernel.Agents.AgentGroupChat sk_groupchat_agent)
+            {
+                Console.WriteLine($"Microsoft.SemanticKernel.Agents.AgentGroupChat is automatically destroyed");
+            }     
         }
+
+        return agent_response;
     }
 
     // Helper function to read the agent's instructions based on its name
-    private static async Task<string> ReadAgentInstructionsAsync(string agentName)
+    private static async Task<string> ReadAgentInstructionsAsync(string agent_name)
     {
         string instructions;
-        string filePath = Path.Combine("agents", $"{agentName}.txt");
+        string filePath = Path.Combine("agents", $"{agent_name}.txt");
         instructions = await File.ReadAllTextAsync(filePath);
         return instructions;
     }

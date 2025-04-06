@@ -51,7 +51,6 @@ internal class Program
     private static async Task Main(string[] args)
     {
         #region Environment Configuration
-
         Console.WriteLine("Application starts");
 
         // Load configuration from environment variables or user secrets.
@@ -72,11 +71,10 @@ internal class Program
             ) as ChatCompletionAgent;
 
         // chat with the agent
-        await ChatWithAgentAsync(sk_chatcompletion_agent);
+        await ChatWithAgentAsync(sk_chatcompletion_agent, delete_agent_after_chat: false);
         #endregion
 
-        #region Semantic Kernel Assistant Agent (including CodeInterpreter)
-
+        #region Semantic Kernel Assistant Agent with CodeInterpreter and FileClient
         Console.WriteLine("\n\n\n+++++++++++++++++ Semantic Kernel Assistant Agent +++++++++++++++++\n");
 
         System.Collections.Generic.List<string> files_to_search_in = [];
@@ -94,12 +92,12 @@ internal class Program
 
 
         // chat with the agent
-        await ChatWithAgentAsync(sk_assistant_agent, ai_settings: ai_settings);
+        await ChatWithAgentAsync(sk_assistant_agent, ai_settings: ai_settings, delete_agent_after_chat: false);
         #endregion
 
-        #region Semantic Kernel AI Foundry Agent
+        #region Semantic Kernel AI Foundry Agent with Bing Grounding Tool
         Console.WriteLine("\n\n\n+++++++++++++++++ Semantic Kernel AI Foundry Agent +++++++++++++++++\n");
-        Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
+        Console.Write("\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
         s_aiagent_id = Console.ReadLine();
 
         // Microsoft.SemanticKernel.Agents.AzureAI    
@@ -111,7 +109,7 @@ internal class Program
             ) as AzureAIAgent;
 
         // chat with the agent
-        await ChatWithAgentAsync(agent: sk_aifoundry_agent);
+        await ChatWithAgentAsync(agent: sk_aifoundry_agent, delete_agent_after_chat: false);
         #endregion
     }
 
@@ -126,6 +124,12 @@ internal class Program
         // - to create a Semantic Kernel SDK object, two steps are needed: Azure AI Foundry SDK object + SK object that relies on the Azure SDK object
 
         object? agent = null;
+
+        // Provided instructions take the precedence of the ones stored in the agent's file
+        if (string.IsNullOrWhiteSpace(instructions))
+        {
+            instructions = await ReadAgentInstructionsAsync(agent_name: agent_name);
+        }
 
         if (agent_type == "sk_chatcompletion_agent")
         {
@@ -179,7 +183,7 @@ internal class Program
 
             // library OpenAI.Files for OpenAIFileClient and OpenAIFile
             OpenAIFileClient fileClient = openaiClient.GetOpenAIFileClient();
-            foreach (string file_path in files_to_search_in)
+            foreach (string file_path in files_to_search_in ?? new System.Collections.Generic.List<string>())
             {
                 await fileClient.UploadFileAsync(file_path, FileUploadPurpose.Assistants);
             }
@@ -221,7 +225,7 @@ internal class Program
                     model: ai_settings.AzureOpenAI.ChatModelDeployment,
                     name: agent_name,
                     description: agent_name,
-                    instructions: await ReadAgentInstructionsAsync(agentName: agent_name),
+                    instructions: instructions,
                     tools: tools
                 );
 
@@ -246,12 +250,11 @@ internal class Program
             }
         }
 
-
         return agent;
     }
 
     // Single function to chat with any kind of agent
-    private static async Task ChatWithAgentAsync(object agent, AISettings? ai_settings = null)
+    private static async Task ChatWithAgentAsync(object agent, AISettings? ai_settings = null, bool delete_agent_after_chat = true)
     {
         // Initiate a back-and-forth chat
         bool exit_chat = false;
@@ -315,7 +318,7 @@ internal class Program
                     
                     finally
                     {
-                        Console.Write($"\nEnter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive > ");
+                        Console.Write($"\nThere are some messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive.");
                         var clear_history = Console.ReadLine();
                         if (!string.IsNullOrWhiteSpace(clear_history))
                         {
@@ -395,14 +398,14 @@ internal class Program
                         // just for testing
                         ChatMessageContent[] messages = await sk_assistant_thread.GetMessagesAsync().ToArrayAsync();
 
-                        int msgNumber=0;
+                        int messages_count=0;
                         await foreach (var message in sk_assistant_thread.GetMessagesAsync())
                         {
-                            msgNumber++;
+                            messages_count++;
                         }
 
                         // We need a carriage return after a simple Write operation executed with the streaming method
-                        Console.Write($"\nThere are {msgNumber} messages. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive.");
+                        Console.Write($"\nThere are {messages_count} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive.");
                         var clear_history = Console.ReadLine();
                         if (!string.IsNullOrWhiteSpace(clear_history))
                         {
@@ -458,14 +461,14 @@ internal class Program
                         // collect the thread messages: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/agent-streaming?pivots=programming-language-csharp
                         ChatMessageContent[] messages = await sk_aiagent_thread.GetMessagesAsync().ToArrayAsync();
 
-                        int msg_count=0; // count the nr of messages we have in the thread
+                        int messages_count=0; // count the nr of messages we have in the thread
                         await foreach (var message in sk_aiagent_thread.GetMessagesAsync())
                         {
-                            msg_count++;
+                            messages_count++;
                         }
 
                         // We need a carriage return after a simple Write operation executed with the streaming method
-                        Console.Write($"\nThere are {msg_count} messages. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive > ");
+                        Console.Write($"\nThere are {messages_count} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive > ");
                         var clear_history = Console.ReadLine();
                         if (!string.IsNullOrWhiteSpace(clear_history))
                         {
@@ -483,16 +486,16 @@ internal class Program
 
         finally
         {
-            if (agent is Microsoft.SemanticKernel.Agents.ChatCompletionAgent sk_chatcompletion_agent)
+            if (delete_agent_after_chat && agent is Microsoft.SemanticKernel.Agents.ChatCompletionAgent sk_chatcompletion_agent)
             {
                 Console.WriteLine($"ChatCompletion agent {sk_chatcompletion_agent.Name}({sk_chatcompletion_agent.Id}) is automatically destroyed");                
             }
-            else if ((agent is Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent sk_assistant_agent))
+            else if (delete_agent_after_chat && agent is Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent sk_assistant_agent)
             {
                 Console.WriteLine($"Deleting assistant {sk_assistant_agent.Name} ({sk_assistant_agent.Id})...");
                 await sk_assistant_agent.Client.DeleteAssistantAsync(assistantId: sk_assistant_agent.Id);
             }            
-            else if (agent is Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent sk_ai_agent)
+            else if (delete_agent_after_chat && agent is Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent sk_ai_agent)
             {
                 Console.WriteLine($"Deleting agent {sk_ai_agent.Name}({sk_ai_agent.Id})...");
                 await sk_ai_agent.Client.DeleteAgentAsync(agentId: sk_ai_agent.Id);
@@ -501,10 +504,10 @@ internal class Program
     }
 
     // Helper function to read the agent's instructions based on its name
-    private static async Task<string> ReadAgentInstructionsAsync(string agentName)
+    private static async Task<string> ReadAgentInstructionsAsync(string agent_name)
     {
         string instructions;
-        string filePath = Path.Combine("agents", $"{agentName}.txt");
+        string filePath = Path.Combine("agents", $"{agent_name}.txt");
         instructions = await File.ReadAllTextAsync(filePath);
         return instructions;
     }
