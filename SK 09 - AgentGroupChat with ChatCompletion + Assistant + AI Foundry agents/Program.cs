@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
-// Last update: April 2025
+// Last update: April 4th, 2025
+
 # region libraries
 // See https://aka.ms/new-console-template for more information
 
@@ -17,13 +18,13 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.45.0-preview" />
+// dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.46.0-preview" />
 using Microsoft.SemanticKernel.Agents.AzureAI;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.45.0-preview" />
+// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.46.0-preview" />
 using Microsoft.SemanticKernel.Agents.OpenAI;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.45.0" />
+// dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.46.0" />
 using Microsoft.SemanticKernel.Agents; // needed for ChatCompletion
 
 // dotnet add package Azure.AI.Projects --version 1.0.0-beta.3 --> <PackageReference Include="Azure.AI.Projects" Version="1.0.0-beta.3" />
@@ -76,7 +77,7 @@ internal class Program
             ) as AzureAIAgent;
 
         // chat with the agent
-        var animalpicker_response = await ChatWithAgentAsync(agent: animalpicker_agent, delete_agent_after_chat: false);
+        var animalpicker_response = await GenericChatWithAgentAsync(agent: animalpicker_agent, delete_agent_after_chat: false);
         #endregion
 
         #region AnimalJoker (SK ChatCompletion Agent)
@@ -86,11 +87,12 @@ internal class Program
         ChatCompletionAgent? animaljoker_agent = await GenericCreateAgentAsync(
             ai_settings: ai_settings,
             agent_type: "sk_chatcompletion_agent",
-            agent_name: "AnimalJoker"
+            agent_name: "AnimalJoker",
+            instructions: "You are a clever chat completion agent"
             ) as ChatCompletionAgent;
 
         // chat with the agent
-        var animaljoker_response = await ChatWithAgentAsync(agent: animaljoker_agent, delete_agent_after_chat: false);
+        var animaljoker_response = await GenericChatWithAgentAsync(agent: animaljoker_agent, delete_agent_after_chat: false);
         #endregion
 
         #region Statistician (SK with CodeInterpreter)
@@ -107,7 +109,7 @@ internal class Program
             ) as OpenAIAssistantAgent;
 
         // chat with the agent
-        var statistician_response = await ChatWithAgentAsync(agent: statistician_agent, ai_settings: ai_settings, delete_agent_after_chat: false);
+        var statistician_response = await GenericChatWithAgentAsync(agent: statistician_agent, ai_settings: ai_settings, delete_agent_after_chat: false);
         #endregion
 
         #region Reviewer (SK ChatCompletion Agent)
@@ -121,7 +123,7 @@ internal class Program
             ) as ChatCompletionAgent;
 
         // chat with the agent
-        var reviewer_response = await ChatWithAgentAsync(agent: reviewer_agent, delete_agent_after_chat: false);
+        var reviewer_response = await GenericChatWithAgentAsync(agent: reviewer_agent, delete_agent_after_chat: false);
         #endregion
 /*
         #region Semantic Kernel ChatCompletion Agent with Plugin
@@ -135,7 +137,7 @@ internal class Program
             ) as ChatCompletionAgent;
 
         // chat with the agent
-        await ChatWithAgentAsync(sk_chatcompletion_agent);
+        await GenericChatWithAgentAsync(sk_chatcompletion_agent);
         #endregion
 
         #region Semantic Kernel Assistant Agent with CodeInterpreter and FileClient
@@ -155,7 +157,7 @@ internal class Program
             ) as OpenAIAssistantAgent;
 
         // chat with the agent
-        await ChatWithAgentAsync(sk_assistant_agent, ai_settings: ai_settings);
+        await GenericChatWithAgentAsync(sk_assistant_agent, ai_settings: ai_settings);
         #endregion
 */
         #region GroupCahtAgent (SK Microsoft.SemanticKernel.Agents.AgentGroupChat)
@@ -164,7 +166,7 @@ internal class Program
             animalpicker_agent: animalpicker_agent, animaljoker_agent: animaljoker_agent, 
             statistician_agent:statistician_agent, reviewer_agent: reviewer_agent, ai_settings: ai_settings);
 
-        var groupchat_response = await ChatWithAgentAsync(agent: sk_groupchat_agent, delete_agent_after_chat: false); 
+        var groupchat_response = await GenericChatWithAgentAsync(agent: sk_groupchat_agent, delete_agent_after_chat: false); 
         #endregion
         
         
@@ -397,7 +399,7 @@ internal class Program
 
 
     // Single function to chat with any kind of agent
-    private static async Task<string> ChatWithAgentAsync(object agent, AISettings? ai_settings = null, bool delete_agent_after_chat = true)
+    private static async Task<string> GenericChatWithAgentAsync(object agent, AISettings? ai_settings = null, bool delete_agent_after_chat = true)
     {
         // Initiate a back-and-forth chat
         bool exit_chat = false;

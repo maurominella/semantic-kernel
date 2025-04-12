@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "dotnet",
+			"task": "build e:\\Users\\mauromi\\source\\git_repos\\semantic-kernel\\SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group)\\SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group).csproj",
+			"file": "e:\\Users\\mauromi\\source\\git_repos\\semantic-kernel\\SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group)\\SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group).csproj",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "dotnet: build e:\\Users\\mauromi\\source\\git_repos\\semantic-kernel\\SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group)\\SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group).csproj"
+		}
+	]
+}

@@ -1,6 +1,6 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
-// Last update: March 31st, 2025
+// Last update: April 4th, 2025
 
 // See https://aka.ms/new-console-template for more information
 
@@ -12,18 +12,18 @@
 
 // dotnet new console -n "SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group)" --framework net9.0
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.45.0" />
+// dotnet add package Microsoft.SemanticKernel --> PackageReference Include="Microsoft.SemanticKernel" Version="1.46.0" />
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.45.0-preview" />
+// dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.46.0-preview" />
 using Microsoft.SemanticKernel.Agents.AzureAI;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.45.0-preview" />
+// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.46.0-preview" />
 using Microsoft.SemanticKernel.Agents.OpenAI;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.45.0" />
+// dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.46.0" />
 using Microsoft.SemanticKernel.Agents; // needed for ChatCompletion
 
 // dotnet add package Azure.AI.Projects --version 1.0.0-beta.3 --> <PackageReference Include="Azure.AI.Projects" Version="1.0.0-beta.3" />
@@ -67,18 +67,19 @@ internal class Program
         ChatCompletionAgent? sk_chatcompletion_agent = await GenericCreateAgentAsync(
             ai_settings: ai_settings,
             agent_type: "sk_chatcompletion_agent",
-            agent_name: "sk_chatcompletion_agent"
+            agent_name: "sk_chatcompletion_agent",
+            instructions: "You are a clever chat completion agent"
             ) as ChatCompletionAgent;
 
         // chat with the agent
-        await ChatWithAgentAsync(sk_chatcompletion_agent, delete_agent_after_chat: false);
+        await GenericChatWithAgentAsync(sk_chatcompletion_agent, delete_agent_after_chat: false);
         #endregion
 
         #region Semantic Kernel Assistant Agent with CodeInterpreter and FileClient
         Console.WriteLine("\n\n\n+++++++++++++++++ Semantic Kernel Assistant Agent +++++++++++++++++\n");
 
-        System.Collections.Generic.List<string> files_to_search_in = [];
-        files_to_search_in.AddRange("./data/PopulationByAdmin.csv", "./data/PopulationByCountry.csv");
+        System.Collections.Generic.List<string> files_to_search_in = RetrieveAssistantFilesPath("./assistant_files");
+        Console.WriteLine($"Files to search in: {string.Join(", ", files_to_search_in)}");        
 
         // library Microsoft.SemanticKernel.Agents.OpenAI for OpenAIAssistantAgent
         OpenAIAssistantAgent? sk_assistant_agent = await GenericCreateAgentAsync(
@@ -92,7 +93,7 @@ internal class Program
 
 
         // chat with the agent
-        await ChatWithAgentAsync(sk_assistant_agent, ai_settings: ai_settings, delete_agent_after_chat: false);
+        await GenericChatWithAgentAsync(sk_assistant_agent, ai_settings: ai_settings, delete_agent_after_chat: false);
         #endregion
 
         #region Semantic Kernel AI Foundry Agent with Bing Grounding Tool
@@ -109,7 +110,7 @@ internal class Program
             ) as AzureAIAgent;
 
         // chat with the agent
-        await ChatWithAgentAsync(agent: sk_aifoundry_agent, delete_agent_after_chat: false);
+        await GenericChatWithAgentAsync(agent: sk_aifoundry_agent, delete_agent_after_chat: false);
         #endregion
     }
 
@@ -183,9 +184,10 @@ internal class Program
 
             // library OpenAI.Files for OpenAIFileClient and OpenAIFile
             OpenAIFileClient fileClient = openaiClient.GetOpenAIFileClient();
+            System.Collections.Generic.List<string> codeInterpreterFileIds = [];
             foreach (string file_path in files_to_search_in ?? new System.Collections.Generic.List<string>())
             {
-                await fileClient.UploadFileAsync(file_path, FileUploadPurpose.Assistants);
+                codeInterpreterFileIds.Add((await fileClient.UploadFileAsync(file_path, FileUploadPurpose.Assistants)).Value.Id);
             }
 
             // Using the Azure OpenAI Client, now extract another Client for OpenAI Assistant Agent
@@ -195,7 +197,8 @@ internal class Program
                 modelId: ai_settings.AzureOpenAI.ChatModelDeployment,
                 name: agent_name,
                 instructions: instructions,
-                enableCodeInterpreter: enableCodeInterpreter
+                enableCodeInterpreter: enableCodeInterpreter, 
+                codeInterpreterFileIds: codeInterpreterFileIds
             );
 
             // using the definition of a specific (new or existing) OpenAI Assistant, now we may directly instantiate an OpenAIAssistantAgent 
@@ -254,7 +257,7 @@ internal class Program
     }
 
     // Single function to chat with any kind of agent
-    private static async Task ChatWithAgentAsync(object agent, AISettings? ai_settings = null, bool delete_agent_after_chat = true)
+    private static async Task GenericChatWithAgentAsync(object agent, AISettings? ai_settings = null, bool delete_agent_after_chat = true)
     {
         // Initiate a back-and-forth chat
         bool exit_chat = false;
@@ -611,5 +614,27 @@ internal class Program
                     });
             }
         }
+    }
+
+    // Helper function to retrieve the list of files that Assistant Agent uses to search in with CodeInterpreter
+    private static System.Collections.Generic.List<string> RetrieveAssistantFilesPath(string folderPath)
+    {
+        System.Collections.Generic.List<string> files_to_search_in = [];
+
+        // Check if the folder exists
+        if (Directory.Exists(folderPath))
+        {
+            // Get all files in the folder
+            string[] files = Directory.GetFiles(folderPath);
+
+            // Check if there are any files
+            if (files.Length > 0)
+            {
+                // Add file paths to the list
+                files_to_search_in.AddRange(files);
+            }
+        }
+
+        return files_to_search_in;
     }
 }
