@@ -6,3 +6,5 @@ Write exactly one joke or humorous story, about the provided animal. Joke must b
 No sexism, racism or other bias/bigotry.
 
 Be creative and funny. I want to laugh.
+
+Your answer must start with "Here is the joke: " followed by the joke you invented.

@@ -144,7 +144,7 @@ internal class Program
             animalpicker_agent: animalpicker_agent, animaljoker_agent: animaljoker_agent, statistician_agent: statistician_agent, 
             reviewer_agent: reviewer_agent, creaturequestioner_agent: creaturequestioner_agent, ai_settings: ai_settings);
 
-        var groupchat_response = await GenericChatWithAgentAsync(agent: sk_groupchat_agent, delete_agent_after_chat: false); 
+        var groupchat_response = await GenericChatWithAgentAsync(agent: sk_groupchat_agent, delete_agent_after_chat: false, ai_settings: ai_settings); 
         #endregion
         
         
@@ -618,7 +618,7 @@ internal class Program
                     sk_groupchat_agent.AddChatMessage(new ChatMessageContent(AuthorRole.User, user_input));
                     try
                     {
-                            // here we show both streaming and non-streaming versions
+                        // here we show both streaming and non-streaming versions
                         await foreach (StreamingChatMessageContent response in sk_groupchat_agent.InvokeStreamingAsync())
                         //await foreach (ChatMessageContent response in groupAgent.InvokeAsync())
                         {
@@ -648,7 +648,7 @@ internal class Program
                     // library Microsoft.SemanticKernel.Agents.OpenAI for OpenAIAssistantAgent
                     // library Azure.AI.OpenAI for AzureOpenAIClient
                     AzureOpenAIClient openaiClient = OpenAIAssistantAgent.CreateAzureOpenAIClient(
-                        new AzureCliCredential(), new Uri("https://mmoaiswc-01.openai.azure.com/")); // new AzureCliCredential(), new Uri(ai_settings.AzureOpenAI.Endpoint));
+                        new AzureCliCredential(), new Uri(ai_settings.AzureOpenAI.Endpoint)); // new AzureCliCredential(), new Uri("https://mmoaiswc-01.openai.azure.com/"));
 
                     OpenAIFileClient file_client = openaiClient.GetOpenAIFileClient();
 
@@ -656,7 +656,6 @@ internal class Program
                     await DownloadResponseAsync(file_client: file_client, files_to_download: files_to_download);
                     files_to_download.Clear();
 
-                    files_to_download.Clear();
                     Console.WriteLine();
                     exit_chat = exit_chat || sk_groupchat_agent.IsComplete;
                 }
@@ -767,7 +766,7 @@ internal class Program
             Console.WriteLine();
             foreach (string fileId in files_to_download)
             {
-                await DownloadSingleFileContentAsync(file_client, fileId, launchViewer: false);
+                await DownloadSingleFileContentAsync(file_client, fileId, launchViewer: true);
             }
         }
     }
