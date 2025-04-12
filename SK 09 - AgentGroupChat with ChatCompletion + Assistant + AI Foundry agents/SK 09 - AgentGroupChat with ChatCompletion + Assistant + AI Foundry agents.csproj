@@ -22,10 +22,7 @@
     <None Include="agents/Statistician.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="data/PopulationByAdmin.csv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="data/PopulationByCountry.csv">
+    <None Include="agents/CreatureQuestioner.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
 

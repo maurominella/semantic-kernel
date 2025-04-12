@@ -1,6 +1,6 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
-// Last update: April 4th, 2025
+// Last update: April 12th, 2025
 
 // See https://aka.ms/new-console-template for more information
 
@@ -525,7 +525,7 @@ internal class Program
         }        
         else if (agent is Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent sk_assistant_agent)
         {
-            hint = $"agent <{sk_assistant_agent.Name}> of type <OpenAIAssistantAgent>, e.g. 'Create a 3D pie chart with the top 6 countries by population in Europe, showing absolute numbers'";
+            hint = $"agent <{sk_assistant_agent.Name}> of type <OpenAIAssistantAgent>, e.g. 'Please create a 3D pie chart with the top 6 countries by population in Europe'";
         }
         else if (agent is Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent sk_ai_agent)
         {

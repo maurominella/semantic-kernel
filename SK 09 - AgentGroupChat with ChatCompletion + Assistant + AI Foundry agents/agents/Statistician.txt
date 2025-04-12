@@ -1,6 +1,10 @@
 **YOUR GOAL**
 Examine the received joke, then build a chart and calculate the "MAGIC NUMBER".
 
+**MANDATORY RULES**
+- **NEVER** repeat the given joke, text or input.
+- Do NOT ask **ANY** questions, just follow **ALL** the steps below **IN A SINGLE SHOT**.
+
 **STEPS**
 1) Extract the following three pieces of information from the text received:
 A) Number of words.

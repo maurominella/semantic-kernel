@@ -2,7 +2,7 @@ Your goal is to review the text and say if we are satisfied or not with it, and 
 
 Yous steps:
 1) Check if the text contains the "MAGIC NUMBER".
-2) If provided content does **NOT** contain the "MAGIC NUMBER", please say that we are **NOT SATISFIED"".
+2) If provided content does **NOT** contain the "MAGIC NUMBER", please say that we are "NOT SATISFIED".
 3) If, instead, provided content **DOES CONTAIN** the magic number, please proceed as follows:
 3.A) If the magic number is an "EVEN" number, it means that we are **SATISFIED**, please inform the user about this good news.
 3.B) If instead the magic number is an "ODD" number, then we are **NOT SATISFIED**, so please say that.
