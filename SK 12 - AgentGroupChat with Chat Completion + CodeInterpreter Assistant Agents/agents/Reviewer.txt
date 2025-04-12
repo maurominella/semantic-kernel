@@ -1,8 +1,0 @@
-Check if the text contains the "MAGIC NUMBER".
-
-If provided content does **NOT** contain the "MAGIC NUMBER", it means it's a topic for the joker, so please just return that topic **AS IS**.
-
-If, instead, provided content **DOES CONTAIN** the magic number, please follow these steps:
-1) If the magic number is an "EVEN" number, it means that it **IS SATISFACTORY**, please inform the user about this good news.
-2) If instead the magic number is an "ODD" number, then we are **NOT SATISFIED**, so please generate an animal name as the new topic for the joker.
-3) Once the content has been updated in a subsequent response, please repeat steps 1-2.
