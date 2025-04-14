@@ -9,11 +9,13 @@
 
 // Base sample: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-chat-agent?pivots=programming-language-csharp
 
-// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.2" />
-// dotnet add package Microsoft.Extensions.Logging.Console --> <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.2" />
+// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.4" />
 using Microsoft.Extensions.Logging;
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.37.0" />
+// dotnet add package Microsoft.Extensions.DependencyInjection --> <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.4" />
+using Microsoft.Extensions.DependencyInjection;
+
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.46.0" />
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
@@ -23,8 +25,6 @@ using DotNetEnv;
 
 using AIPlugins;
 
-// dotnet add package Microsoft.Extensions.DependencyInjection --> <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.2" />
-using Microsoft.Extensions.DependencyInjection;
 
 string projectRoot;
 
@@ -62,13 +62,13 @@ Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {endpoint}\nAZURE_OPENAI_CHAT_DEPLOYM
 var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(modelId, endpoint, apiKey);
 
 // Use the kernel builder to add enterprise components (for logging, in this case)
-builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
+builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.None));
 
 // Build the kernel from the builder that already contains ChatCompletionService + Logging services
 Kernel kernel = builder.Build();
 
 // Add a plugin (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
-kernel.Plugins.AddFromType<LightsPlugin>("Lights");
+// kernel.Plugins.AddFromType<LightsPlugin>("Lights");
 
 // Enable planning
 var openAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
@@ -83,18 +83,20 @@ var history = new ChatHistory();
 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
 // Initiate a back-and-forth chat
-string? userInput;
+string? user_input;
 do
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
 {
     // Collect user input
-    Console.Write("User > ");
-    userInput = Console.ReadLine();
+    Console.Write("\n\nPls ask your question, e.g. 'Toggle chandelier light and tell me all lights status' > ");
+    user_input = Console.ReadLine();
 
     // Check if userInput is not null before adding it to the chat history
-    if (userInput != null)
+    if (!string.IsNullOrWhiteSpace(user_input))
     {
-        history.AddUserMessage(userInput);
+        // plugin status must be kept by the history, not the kernel
+        Microsoft.SemanticKernel.KernelPlugin lights_plugin = kernel.Plugins.AddFromType<LightsPlugin>("Lights");
+        history.AddUserMessage(user_input);
 
         // Get the response from the AI
         var result = await chatCompletionService.GetChatMessageContentAsync(
@@ -107,8 +109,18 @@ do
 
         // Add the message from the agent to the chat history
         history.AddMessage(result.Role, result.Content ?? string.Empty);
+        kernel.Plugins.Remove(lights_plugin);
+
+        Console.Write($"\nThere are {history.ToList().Count} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive. > ");
+        var clear_history = Console.ReadLine();
+        if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
+        {
+            history.Clear();
+        }
     }
-} while (!string.IsNullOrWhiteSpace(userInput) && !userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
+
+
+} while (!(string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)));
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
 Console.WriteLine("Application ends");

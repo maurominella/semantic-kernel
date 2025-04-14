@@ -3,15 +3,19 @@
 // **Documentation**: [`ChatHistoryAgentThread`](https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-chat-agent?pivots=programming-language-csharp)
 
 // Import packages
-using Microsoft.Extensions.DependencyInjection;
+
+// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.4" />
 using Microsoft.Extensions.Logging;
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.45.0" />
+// dotnet add package Microsoft.Extensions.DependencyInjection --> <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.4" />
+using Microsoft.Extensions.DependencyInjection;
+
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.46.0" />
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.45.0" />
+// dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.46.0" />
 using Microsoft.SemanticKernel.Agents; // needed for ChatCompletion
 
 using DotNetEnv;
@@ -60,9 +64,6 @@ builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(Lo
 // Build the kernel
 Kernel kernel = builder.Build();
 
-// Add a plugin (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
-kernel.Plugins.AddFromType<LightsPlugin>("Lights");
-
 // Enable planning
 // if "pure" OpenAI, please use OpenAIPromptExecutionSettings
 // in Azure OpenAI, we have     AzureChatPromptExecutionSettings
@@ -102,12 +103,15 @@ do
 // #pragma warning disable CS8602 // Dereference of a possibly null reference.
 {
     // Collect user input
-    Console.Write("\nUser > (ex: 'First, toggle the porch light. After that, give me the status of all the lights.')");
+    Console.Write("\n\nPls ask your question, e.g. 'Toggle chandelier light and tell me all lights status' > ");
     user_input = Console.ReadLine();
 
     // Check if userInput is not null before adding it to the chat history
     if (!(string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)))
     {
+        // plugin status must be kept by the history, not the kernel
+        Microsoft.SemanticKernel.KernelPlugin lights_plugin = kernel.Plugins.AddFromType<LightsPlugin>("Lights");
+
         var message = new ChatMessageContent(AuthorRole.User, user_input);
 
         // await foreach (ChatMessageContent response in sk_chatcompletion_agent.InvokeAsync(message: message, thread: sk_chatcompletionagent_thread))
@@ -115,13 +119,26 @@ do
         {
             Console.Write($"{response.Content}");
         }
+
+        kernel.Plugins.Remove(lights_plugin);
+
+        Console.Write($"\nThere are {sk_chatcompletionagent_thread.ChatHistory.Count()} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive. > ");
+        var clear_history = Console.ReadLine();
+        if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
+        {
+            sk_chatcompletionagent_thread.ChatHistory.Clear();
+        }
+
     }
-} while (!string.IsNullOrWhiteSpace(user_input) && !user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
+} while (!(string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)));
 // #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
 // delete the thread
-Console.WriteLine($"\nDeleting thread  id {sk_chatcompletionagent_thread.Id}...");
-await sk_chatcompletionagent_thread.DeleteAsync();
+if (sk_chatcompletionagent_thread.Id is not null)
+{
+    Console.WriteLine($"\nDeleting thread  id {sk_chatcompletionagent_thread.Id}...");
+    await sk_chatcompletionagent_thread.DeleteAsync();
+}
 
 // delete the agent
 Console.WriteLine($"\nDeleting agent {sk_chatcompletion_agent.Id}...");

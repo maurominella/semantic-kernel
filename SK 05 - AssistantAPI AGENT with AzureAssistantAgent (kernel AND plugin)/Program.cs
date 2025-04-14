@@ -90,7 +90,7 @@ internal class Program
 
 #pragma warning disable OPENAI001 // 'OpenAI.Assistants.AssistantClient' is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
         // Using the Azure OpenAI Client, now extract another Client for OpenAI Assistant Agent
-        AssistantClient assistantClient = openaiClient.GetAssistantClient();
+        AssistantClient assistant_client = openaiClient.GetAssistantClient();
 #pragma warning restore OPENAI001
 
         // using the Client for OpenAI Assistant Agent, now either...
@@ -101,7 +101,7 @@ internal class Program
         string agent_name = "mauromi_assistant_agent_c#";
         string instructions = "you are a clever agent";
 
-        var assistantDefinition = await assistantClient.CreateAssistantAsync(
+        var assistant_definition = await assistant_client.CreateAssistantAsync(
             modelId: Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
             name: agent_name,
             instructions: instructions,
@@ -110,102 +110,89 @@ internal class Program
             vectorStoreId: storeId
         );
 
-        KernelPlugin lightsPlugin = KernelPluginFactory.CreateFromType<LightsPlugin>();
-
         // using the definition of a specific (new or existing) OpenAI Assistant, now we may directly instantiate an OpenAIAssistantAgent 
-        var agent = new OpenAIAssistantAgent(definition: assistantDefinition, client: assistantClient, plugins: [lightsPlugin]);
+        var sk_assistantagent = new OpenAIAssistantAgent(definition: assistant_definition, client: assistant_client); //, plugins: [lightsPlugin]);
 
         // Add enterprise logging components
         // TBI
 
         // Create the conversation thread
         Console.WriteLine("Creating thread...");
-        OpenAIAssistantAgentThread agentThread = new(client: assistantClient);
+        OpenAIAssistantAgentThread? sk_assistant_thread = null;
 
         // Initiate a back-and-forth chat
-        bool isComplete = false;
-        try
+        string? user_input;
+        do
         {
-            string? userInput;
-            do
+            // Collect user input
+            Console.Write("\n\nPls ask your question, e.g. 'How many interior pockets does Trailmaster have?' OR 'Toggle the porch light and tell me all statuses' > ");
+            user_input = Console.ReadLine();
+
+            if (!(string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)))
             {
-                Console.WriteLine();
-                Console.Write("User (e.g. 'What is the sub category of the product TrailMaster X4 Tent?' or 'How many interior pockets does Trailmaster have?') > ");
-                // Collect user input
-                userInput = Console.ReadLine();
-                if (string.IsNullOrWhiteSpace(userInput))
+                if (sk_assistant_thread == null)
                 {
-                    continue;
+                    sk_assistant_thread = new(client: assistant_client);
                 }
-                if (string.IsNullOrWhiteSpace(userInput) || userInput.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
+                // plugin status must be kept by the history, not the kernel             
+                Microsoft.SemanticKernel.KernelPlugin lights_plugin = sk_assistantagent.Kernel.Plugins.AddFromType<LightsPlugin>("Lights");
+
+                var message = new ChatMessageContent(AuthorRole.User, user_input);
+
+                await foreach (StreamingChatMessageContent response in sk_assistantagent.InvokeStreamingAsync(message: message, thread: sk_assistant_thread))
                 {
-                    isComplete = true;
-                    break;
+                    // Display response.
+                    Console.Write($"{response.Content}");
+
+                    // SK does NOT need to add the response to the thread history
                 }
 
-                var message = new ChatMessageContent(AuthorRole.User, userInput);
+                sk_assistantagent.Kernel.Plugins.Clear(); // better than sk_assistantagent.Kernel.Plugins.Remove(lights_plugin);
 
-                try
+                // collect the thread messages: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/agent-streaming?pivots=programming-language-csharp
+                ChatMessageContent[] messages = await sk_assistant_thread.GetMessagesAsync().ToArrayAsync();
+
+                Console.Write($"\nThere are {messages.Length} messages in the history. Enter 'Y' inf you want to clear the status, or anything else to keep the thread and its messages alive > ");
+                var clear_history = Console.ReadLine();
+                if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
                 {
-                    await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(message: message, thread: agentThread))
-                    {
-                        // Display response.
-                        Console.Write($"{response.Content}");
-
-                        // SK does NOT need to add the response to the thread history
-                    }
+                    Console.WriteLine($"Deleting thread {sk_assistant_thread.Id}...");
+                    await sk_assistant_thread.DeleteAsync();
+                    sk_assistant_thread = null;
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error: {ex.Message}");
-                    isComplete = true;
-                    break;
-                }
-                Console.WriteLine();
-
-            } while (!isComplete);
-        }
-        finally
-        {
-            Console.WriteLine("\nCleaning-up...");
-
-            // collect the thread messages: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/agent-streaming?pivots=programming-language-csharp
-            ChatMessageContent[] messages = await agentThread.GetMessagesAsync().ToArrayAsync();
-            int i = 0;
-            foreach (var message in messages.Reverse())
-            {
-                Console.WriteLine($"Message {++i}: {message.Content}");
             }
 
-            Console.WriteLine($"Deleting thread {agentThread.Id}...");
-            await agentThread.DeleteAsync();
+            Console.WriteLine();
 
-            Console.WriteLine($"Deleting store {storeId}...");
-            await storeClient.DeleteVectorStoreAsync(storeId);
+        } while (!(string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)));
+        Console.WriteLine("\nCleaning-up...");
 
-            Console.WriteLine($"Deleting assistant {agent.Name} ({agent.Id})...");
-            await assistantClient.DeleteAssistantAsync(agent.Id);
-
-            foreach (var f in fileReferences.Values)
-            {
-                Console.WriteLine($"Deleting file {f.Filename} ({f.Id})...");
-                await fileClient.DeleteFileAsync(f.Id);
-            }
-
-            /* alternatively, asynchronously wait for all the tasks to complete before moving on to the next line of code
-            await Task.WhenAll( // The program will 
-                [
-                    agentThread.DeleteAsync(),
-                    assistantClient.DeleteAssistantAsync(agent.Id),
-                    storeClient.DeleteVectorStoreAsync(storeId),
-                ]);
-            */
-        }
-
-        if (isComplete)
+        if (sk_assistant_thread != null && sk_assistant_thread.Id != null)
         {
-            return; // Terminate the program after the finally block
+            Console.WriteLine($"Deleting thread {sk_assistant_thread.Id}...");
+            await sk_assistant_thread.DeleteAsync();
         }
+
+        Console.WriteLine($"Deleting store {storeId}...");
+        await storeClient.DeleteVectorStoreAsync(storeId);
+
+        Console.WriteLine($"Deleting assistant {sk_assistantagent.Name} ({sk_assistantagent.Id})...");
+        await assistant_client.DeleteAssistantAsync(sk_assistantagent.Id);
+
+        foreach (var f in fileReferences.Values)
+        {
+            Console.WriteLine($"Deleting file {f.Filename} ({f.Id})...");
+            await fileClient.DeleteFileAsync(f.Id);
+        }
+
+        /* alternatively, asynchronously wait for all the tasks to complete before moving on to the next line of code
+        await Task.WhenAll( // The program will 
+            [
+                agentThread.DeleteAsync(),
+                assistantClient.DeleteAssistantAsync(agent.Id),
+                storeClient.DeleteVectorStoreAsync(storeId),
+            ]);
+        */
     }
 }
 

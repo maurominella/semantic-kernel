@@ -32,7 +32,7 @@ using Azure.AI.Projects; // Microsoft.SemanticKernel.Agents.AzureAI 1.44.0-previ
 // dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.13.2" />
 using Azure.Identity;
 
-// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3" />
+// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.4" />
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -138,8 +138,8 @@ internal class Program
         var creaturequestioner_response = await GenericChatWithAgentAsync(agent: creaturequestioner_agent, delete_agent_after_chat: false, question_hint: animalpicker_response);
         #endregion
 
-        #region GroupCahtAgent (SK Microsoft.SemanticKernel.Agents.AgentGroupChat)
-        Console.WriteLine("\n\n\n+++++++++++++++++ GroupCahtAgent (SK GroupCahtAgent Agent) +++++++++++++++++\n");
+        #region GroupChatAgent (SK Microsoft.SemanticKernel.Agents.AgentGroupChat)
+        Console.WriteLine("\n\n\n+++++++++++++++++ GroupChatAgent (SK GroupChatAgent Agent) +++++++++++++++++\n");
         var sk_groupchat_agent = GroupChatCreateAgentAsync(
             animalpicker_agent: animalpicker_agent, animaljoker_agent: animaljoker_agent, statistician_agent: statistician_agent, 
             reviewer_agent: reviewer_agent, creaturequestioner_agent: creaturequestioner_agent, ai_settings: ai_settings);

@@ -2,10 +2,10 @@
 
 using System.Reflection;
 
-// dotnet add package Microsoft.Extensions.Configuration --> <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.3" />
-// dotnet add package Microsoft.Extensions.Configuration.EnvironmentVariables --> <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.3" />
-// dotnet add package Microsoft.Extensions.Configuration.Binder --> <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.3" />
-// dotnet add package Microsoft.Extensions.Configuration.UserSecrets --> <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.3" />
+// dotnet add package Microsoft.Extensions.Configuration --> <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.4" />
+// dotnet add package Microsoft.Extensions.Configuration.EnvironmentVariables --> <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.4" />
+// dotnet add package Microsoft.Extensions.Configuration.Binder --> <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.4" />
+// dotnet add package Microsoft.Extensions.Configuration.UserSecrets --> <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.4" />
 using Microsoft.Extensions.Configuration;
 
 // dotnet add package DotNetEnv --> <PackageReference Include="DotNetEnv" Version="3.1.1" />
