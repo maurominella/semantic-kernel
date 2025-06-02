@@ -9,13 +9,14 @@
 
 // Base sample: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-chat-agent?pivots=programming-language-csharp
 
-// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.4" />
+// dotnet add package Microsoft.Extensions.Logging.Console --> <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.5" />
+// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.5" />
 using Microsoft.Extensions.Logging;
 
-// dotnet add package Microsoft.Extensions.DependencyInjection --> <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.4" />
+// dotnet add package Microsoft.Extensions.DependencyInjection --> <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.5" />
 using Microsoft.Extensions.DependencyInjection;
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.46.0" />
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.54.0" />
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
@@ -84,12 +85,14 @@ var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
 // Initiate a back-and-forth chat
 string? user_input;
+bool time_to_exit = false;
 do
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
 {
     // Collect user input
     Console.Write("\n\nPls ask your question, e.g. 'Toggle chandelier light and tell me all lights status' > ");
     user_input = Console.ReadLine();
+    time_to_exit = (string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
 
     // Check if userInput is not null before adding it to the chat history
     if (!string.IsNullOrWhiteSpace(user_input))
@@ -111,16 +114,19 @@ do
         history.AddMessage(result.Role, result.Content ?? string.Empty);
         kernel.Plugins.Remove(lights_plugin);
 
-        Console.Write($"\nThere are {history.ToList().Count} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive. > ");
-        var clear_history = Console.ReadLine();
-        if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
+        if (!time_to_exit)
         {
-            history.Clear();
+
+            Console.Write($"\nThere are {history.ToList().Count} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive. > ");
+            var clear_history = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
+            {
+                history.Clear();
+            }
         }
     }
 
-
-} while (!(string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)));
+} while (!time_to_exit);
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
 
 Console.WriteLine("Application ends");
