@@ -16,12 +16,15 @@ using Microsoft.SemanticKernel.ChatCompletion;
 // dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.55.0-preview" />
 using Microsoft.SemanticKernel.Agents.OpenAI;
 
+// dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.14.0" />
+using Azure.Identity;
+
+
 using OpenAI.Files;
 
 using AgentsSample;
 using OpenAI.Assistants;
 using Azure.AI.OpenAI;
-using Azure.Identity;
 using System.Diagnostics;
 
 internal class Program
@@ -82,7 +85,7 @@ internal class Program
             do
             {
                 Console.WriteLine();
-                Console.WriteLine("Query example: create a 3D pie chart with the top 6 countries by population in Europe, showing absolute numbers");
+                Console.WriteLine("Query example: create a 2D pie chart with the top 6 countries by population in Europe");
                 Console.Write("User > ");
 
                 // Collect user input

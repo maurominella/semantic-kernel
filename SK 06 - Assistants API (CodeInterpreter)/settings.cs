@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 using System.Reflection;
+
+// dotnet add package DotNetEnv --> <PackageReference Include="DotNetEnv" Version="3.1.1" />
 using DotNetEnv;
 using Microsoft.Extensions.Configuration;
 
