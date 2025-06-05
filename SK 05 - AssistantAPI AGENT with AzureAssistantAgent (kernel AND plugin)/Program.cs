@@ -12,14 +12,14 @@
 using DotNetEnv;
 using MyApp.Plugins;
 
-// dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.13.2" />
+// dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.14.0" />
 using Azure.Identity;
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.45.0" />
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.55.0" />
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.45.0-preview" />
+// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --><PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.55.0-preview" />
 using Microsoft.SemanticKernel.Agents.OpenAI;
 using Azure.AI.OpenAI;
 using OpenAI.Assistants;
