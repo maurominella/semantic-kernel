@@ -9,11 +9,11 @@
 // Docs: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/assistant-agent?pivots=programming-language-csharp
 // Class: https://learn.microsoft.com/en-us/dotnet/api/microsoft.semantickernel.agents.openai.openaiassistantagent?view=semantic-kernel-dotnet
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.44.0" />
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.55.0" />
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.44.0-preview" />
+// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.55.0-preview" />
 using Microsoft.SemanticKernel.Agents.OpenAI;
 
 using OpenAI.Files;
@@ -31,6 +31,8 @@ internal class Program
         Console.WriteLine("Application starts");
 
         // Load configuration from environment variables or user secrets.
+        // file credentials_my.env
+        // AZUREOPENAISETTINGS__ENDPOINT, AZUREOPENAISETTINGS__CHATMODELDEPLOYMENT, AZUREOPENAISETTINGS__APIKEY
         var settings = new Settings();
 
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {settings.AzureOpenAI.Endpoint}\n" +
