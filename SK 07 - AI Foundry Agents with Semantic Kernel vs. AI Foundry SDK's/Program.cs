@@ -29,7 +29,14 @@ using Azure.AI.Projects; // Microsoft.SemanticKernel.Agents.AzureAI 1.44.0-previ
 using Azure.Identity;
 
 
+/*
+
+PREVIOUS VERSIONS OF THE LIBRARIES. PLESASE USE PROJECT SK 07 - AI Foundry with persistent library_NEW
+
+*/
+
 namespace LLMSettings;
+
 internal class Program
 {
     private static string? aiagent_id = null; //"asst_8tFjVkAnFiqSwukxKypuTdwg"; // asst_8tFjVkAnFiqSwukxKypuTdwg
@@ -124,8 +131,8 @@ internal class Program
                 // Create Semantic Kernel AGENT, based on the agent definition (called "model" in this call)
                 // library is Microsoft.SemanticKernel.Agents.AzureAI for AzureAIAgent
                 var sk_ai_agent = new AzureAIAgent(
-                    model:sk_agent_definition, client:sk_agents_client);
-                
+                    model: sk_agent_definition, client: sk_agents_client);
+
                 agent = sk_ai_agent;
             }
 
@@ -136,7 +143,7 @@ internal class Program
                 // Create Semantic Kernel AGENT, based on the agent definition (called "model" in this call)
                 // library is Microsoft.SemanticKernel.Agents.AzureAI for AzureAIAgent
                 var sk_ai_agent = new AzureAIAgent(
-                    model:sk_agent_definition, client:sk_agents_client);
+                    model: sk_agent_definition, client: sk_agents_client);
 
                 agent = sk_ai_agent;
             }
@@ -244,7 +251,7 @@ internal class Program
             ConnectionList = { new ToolConnection(bingConnection.Id) }
         };
         var bingGroundingTool = new BingGroundingToolDefinition(connectionList);
-        var tools = new List<BingGroundingToolDefinition>{bingGroundingTool};
+        var tools = new List<BingGroundingToolDefinition> { bingGroundingTool };
         return tools;
     }
 

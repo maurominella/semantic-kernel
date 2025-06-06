@@ -13,12 +13,13 @@ Features included:
 - Azure.AI.Agents.Persistent library
 - Microsoft.SemanticKernel.Agents.AzureAI library
 - Bing Grounding tool
+- Multiple types of agents
 
 */
 
 // Create Agent with Bing Grounding: https://www.nuget.org/packages/Azure.AI.Agents.Persistent/1.0.0#create-agent-with-bing-grounding
 
-// dotnet new console -n "SK 07 - AI Foundry with persistent library_NEW" 
+// dotnet new console -n "SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group)_NEW" --framework net9.0
 
 // dotnet add package Azure.AI.Agents.Persistent --> <PackageReference Include="Azure.AI.Agents.Persistent" Version="1.0.0" />
 using Azure.AI.Agents.Persistent;
