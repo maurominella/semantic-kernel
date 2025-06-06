@@ -134,7 +134,7 @@ internal class Program
 
         if (agent_type == "sk_chatcompletion_agent")
         {
-            // Create the kernel builder with the pointer to Azure OpenAI
+            // Create the kernel builder and then I add the pointer to Azure OpenAI
             var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
                 deploymentName: ai_settings.AzureOpenAI.ChatModelDeployment,
                 endpoint: ai_settings.AzureOpenAI.Endpoint,

@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SK 07 - AI Foundry with persistent library_NEW", "SK 07 - AI Foundry with persistent library_NEW.csproj", "{207B4EF4-E870-222A-BDEA-F87285ADCBD2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{207B4EF4-E870-222A-BDEA-F87285ADCBD2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{207B4EF4-E870-222A-BDEA-F87285ADCBD2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{207B4EF4-E870-222A-BDEA-F87285ADCBD2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{207B4EF4-E870-222A-BDEA-F87285ADCBD2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {61DE0D99-057E-49D1-A7AF-9D6E4E6D0DA2}
+	EndGlobalSection
+EndGlobal
