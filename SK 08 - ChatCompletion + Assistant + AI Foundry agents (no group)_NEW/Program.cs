@@ -24,8 +24,8 @@ Features included:
 // dotnet add package Azure.AI.Agents.Persistent --> <PackageReference Include="Azure.AI.Agents.Persistent" Version="1.0.0" />
 using Azure.AI.Agents.Persistent;
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.55.0" />
-// using Microsoft.SemanticKernel;
+// dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.55.0" />
+using Microsoft.SemanticKernel.Agents; // needed for ChatCompletion
 
 // dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.55.0-preview" />
 using Microsoft.SemanticKernel.Agents.AzureAI;
@@ -34,6 +34,9 @@ using Microsoft.SemanticKernel.Agents.AzureAI;
 // dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.14.0" />
 using Azure.Identity;
 using Azure;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
+using Microsoft.Extensions.Logging;
 
 namespace LLMSettings;
 
@@ -46,28 +49,43 @@ internal class Program
         #region Environment Configuration
         Console.WriteLine("Application starts");
         // Load configuration from environment variables or user secrets.
-        var aiSettings = new AISettings();
-        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {aiSettings.AzureOpenAI.Endpoint}\n" +
-        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {aiSettings.AzureOpenAI.ChatModelDeployment}" +
-        $"PROJECT_ENDPOINT: {aiSettings.AzureOpenAI.ProjectEndpoint}");
+        var ai_settings = new AISettings();
+        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {ai_settings.AzureOpenAI.Endpoint}\n" +
+        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {ai_settings.AzureOpenAI.ChatModelDeployment}" +
+        $"PROJECT_ENDPOINT: {ai_settings.AzureOpenAI.ProjectEndpoint}");
         #endregion
 
+        #region Semantic Kernel ChatCompletion Agent with Plugin
+        Console.WriteLine("\n\n\n+++++++++++++++++ Semantic Kernel ChatCompletion Agent with Plugin +++++++++++++++++\n");
+
+        // library Microsoft.SemanticKernel.Agents for ChatCompletionAgent
+        ChatCompletionAgent? sk_chatcompletion_agent = await GenericCreateAgentAsync(
+            ai_settings: ai_settings,
+            agent_type: "sk_chatcompletion_agent",
+            agent_name: "sk_chatcompletion_agent",
+            instructions: "You are a clever chat completion agent"
+            ) as ChatCompletionAgent;
+
+        // chat with the agent
+        // await GenericChatWithAgentAsync(sk_chatcompletion_agent, delete_agent_after_chat: false);
+        #endregion
+
+        #region Semantic Kernel Assistant Agent with CodeInterpreter and FileClient
+        #endregion
 
         #region Semantic Kernel AI Foundry Agent
         Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
         s_aiagent_id = Console.ReadLine();
 
-        PersistentAgentsClient aiproject_client = AzureAIAgent.CreateAgentsClient(aiSettings.GetVariable("PROJECT_ENDPOINT"), new AzureCliCredential());
+        PersistentAgentsClient aiproject_client = AzureAIAgent.CreateAgentsClient(ai_settings.GetVariable("PROJECT_ENDPOINT"), new AzureCliCredential());
 
         // Microsoft.SemanticKernel.Agents.AzureAI    
         PersistentAgent? sk_ai_agent = await GenericCreateAgentAsync(
             agent_type: "azure_aifoundry_agent",
             agent_name: "AnimalPicker",
             aiagent_id: s_aiagent_id,
-            // aiproject_endpoint: aiSettings.GetVariable("PROJECT_ENDPOINT"),
             aiproject_client: aiproject_client,
-            deployment_name: aiSettings.GetVariable("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
-            bing_connection_id: aiSettings.GetVariable("BING_CONNECTION_ID")
+            ai_settings: ai_settings
             ) as PersistentAgent;
 
         try
@@ -87,8 +105,8 @@ internal class Program
 
     // Single Chat function for all kinds of agents
     private static async Task<object> GenericCreateAgentAsync(
-        string agent_type, string? agent_name = null, PersistentAgentsClient? aiproject_client = null, string? aiproject_endpoint = null, string? deployment_name = null,
-        string? bing_connection_id = null, string? aiagent_id = null)
+        string agent_type, string? agent_name = null, PersistentAgentsClient? aiproject_client = null, string? aiproject_endpoint = null,
+        AISettings? ai_settings = null, string? instructions = null, string? aiagent_id = null)
     {
         // There are two options to create the Azure AI Foundry Agent
         // - to create an Azure AI Foundry SDK object, we can directly create it with the Azure AI Foundry SDK
@@ -96,12 +114,53 @@ internal class Program
 
         object? agent = null;
 
-        if (agent_type == "azure_aifoundry_agent")
+        // Provided instructions take the precedence of the ones stored in the agent's file
+        if (string.IsNullOrWhiteSpace(instructions))
+        {
+            instructions = await ReadAgentInstructionsAsync(agent_name: agent_name);
+        }
+
+        if (agent_type == "sk_chatcompletion_agent")
+        {
+            // Create the kernel builder with the pointer to Azure OpenAI
+            var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
+                deploymentName: ai_settings.AzureOpenAI.ChatModelDeployment,
+                endpoint: ai_settings.AzureOpenAI.Endpoint,
+                apiKey: ai_settings.AzureOpenAI.ApiKey);
+
+            // Use the kernel builder to add enterprise components (for logging, in this case)
+            // builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.None)); // fix this
+
+            // Build the kernel
+            Kernel kernel = builder.Build();
+
+            // Enable planning
+            // if "pure" OpenAI, please use OpenAIPromptExecutionSettings
+            // in Azure OpenAI, we have     AzureChatPromptExecutionSettings
+            var azureOpenAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
+            };
+            var kernelArguments = new KernelArguments(azureOpenAIPromptExecutionSettings)
+            // optional
+            {
+                { "repository", "microsoft/semantic-kernel" }
+            };
+
+            var sk_chatcompletion_agent = new ChatCompletionAgent
+            {
+                Name = agent_name,
+                Instructions = instructions,
+                Kernel = kernel,
+                Arguments = kernelArguments ?? new KernelArguments() // Provide a default value if kernelArguments is null
+            };
+        }
+        else if (agent_type == "azure_aifoundry_agent")
         {
 
             BingGroundingToolDefinition bingGroundingTool = new(
                 bingGrounding: new BingGroundingSearchToolParameters(
-                    [new BingGroundingSearchConfiguration(connectionId: bing_connection_id)]
+                    [new BingGroundingSearchConfiguration(connectionId: ai_settings.GetVariable("BING_CONNECTION_ID"))]
                 )
             );
 
@@ -110,10 +169,10 @@ internal class Program
             if (string.IsNullOrWhiteSpace(aiagent_id))
             {
                 sk_ai_agent = await aiproject_client.Administration.CreateAgentAsync(
-                model: deployment_name,
+                    model: ai_settings.AzureOpenAI.ChatModelDeployment,
                     name: agent_name,
                     description: agent_name,
-                    instructions: await ReadAgentInstructionsAsync(agentName: agent_name),
+                    instructions: instructions,
                     tools: [bingGroundingTool]
                 );
 
@@ -208,10 +267,10 @@ internal class Program
 
 
     // Helper function to read the agent's instructions based on its name
-    private static async Task<string> ReadAgentInstructionsAsync(string agentName)
+    private static async Task<string> ReadAgentInstructionsAsync(string agent_name)
     {
         string instructions;
-        string filePath = Path.Combine("agents", $"{agentName}.txt");
+        string filePath = Path.Combine("agents", $"{agent_name}.txt");
         instructions = await File.ReadAllTextAsync(filePath);
         return instructions;
     }
