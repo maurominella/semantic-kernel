@@ -21,7 +21,7 @@ using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using Microsoft.SemanticKernel.Agents; // needed for ChatCompletion
 
 using DotNetEnv;
-using AIPlugins;
+using AIPlugins; // contains the LightsPlugin class
 
 string projectRoot;
 
@@ -122,9 +122,15 @@ do
         var clear_history = Console.ReadLine();
         if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
         {
+            await foreach (StreamingChatMessageContent response in sk_chatcompletion_agent.InvokeStreamingAsync(
+                message: new ChatMessageContent(AuthorRole.User, "Reset lights status"),
+                thread: sk_chatcompletionagent_thread))
+            {
+                Console.Write($"{response.Content}");
+            }
+
             sk_chatcompletionagent_thread.ChatHistory.Clear();
         }
-
     }
 } while (!(string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)));
 // #pragma warning restore CS8602 // Dereference of a possibly null reference.

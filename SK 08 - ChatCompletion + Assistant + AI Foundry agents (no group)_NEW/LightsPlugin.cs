@@ -26,7 +26,6 @@ public class LightsPlugin
         return this._lights;
     }
 
-
     [KernelFunction("get_lights")]
     [Description("Gets a list of lights and their current state")]
     [return: Description("An array of lights")]

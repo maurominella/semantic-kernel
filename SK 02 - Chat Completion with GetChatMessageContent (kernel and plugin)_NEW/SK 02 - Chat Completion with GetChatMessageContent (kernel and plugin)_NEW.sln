@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SK 02 - Chat Completion with GetChatMessageContent (kernel and plugin)", "SK 02 - Chat Completion with GetChatMessageContent (kernel and plugin).csproj", "{5E8363BD-CE64-A153-663A-21F6CF33E6F4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SK 02 - Chat Completion with GetChatMessageContent (kernel and plugin)_NEW", "SK 02 - Chat Completion with GetChatMessageContent (kernel and plugin)_NEW.csproj", "{5E8363BD-CE64-A153-663A-21F6CF33E6F4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

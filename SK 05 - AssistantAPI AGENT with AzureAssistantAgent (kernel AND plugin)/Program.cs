@@ -5,196 +5,209 @@
 // See https://aka.ms/new-console-template for more information
 
 // OpenAIAssistantAgent is the KEY of this exercise 
-// Migration guide: https://learn.microsoft.com/en-us/semantic-kernel/support/migration/agent-framework-rc-migration-guide?pivots=programming-language-csharp
 // Docs: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/assistant-agent?pivots=programming-language-csharp
-// Class: https://learn.microsoft.com/en-us/dotnet/api/microsoft.semantickernel.agents.openai.openaiassistantagent?view=semantic-kernel-dotnet
+// OpenAIAssistantAgent Class: https://learn.microsoft.com/en-us/dotnet/api/microsoft.semantickernel.agents.openai.openaiassistantagent?view=semantic-kernel-dotnet
+// OpenAIAssistantFileSearch https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-assistant-search?pivots=programming-language-csharp
+// GA Migration guide (AI Foundry): https://learn.microsoft.com/en-us/semantic-kernel/support/migration/azureagent-foundry-ga-migration-guide?pivots=programming-language-csharp
 
-using DotNetEnv;
-using MyApp.Plugins;
-
-// dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.14.0" />
-using Azure.Identity;
-
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.55.0" />
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
+/*
+Package: Microsoft.SemanticKernel.Agents.OpenAI (prerelease) - Based on OpenAI Assistant API
+- Version: 1.55.0-preview (as of 2025-06-07)
+- Source: https://www.nuget.org/packages/Microsoft.SemanticKernel.Agents.OpenAI/1.55.0-preview
+- Underlying SDK: 
+  - OpenAI or Azure.AI.OpenAI
+  - Not GA
+- Available on both OpenAI and Azure endpoints
+- Open AI announced deprecation by early 2026 (going away)
+*/
 
 // dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --><PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.55.0-preview" />
 using Microsoft.SemanticKernel.Agents.OpenAI;
 using Azure.AI.OpenAI;
+using OpenAI.VectorStores;
+using OpenAI.Files;
+using OpenAI.Assistants;
+using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel; // does not require Microsoft.SemanticKernel module
+using Microsoft.SemanticKernel.ChatCompletion;
+
+// dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.14.0" />
+using Azure.Identity;
+
+// dotnet add package DotNetEnv --> <PackageReference Include="DotNetEnv" Version="3.1.1" />
+using DotNetEnv;
+
+// contains the LightsPlugin class
+using MyApp.Plugins;
+
+// contains the AISettings class
+namespace LLMSettings;
+
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.55.0" />
+/*
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+
+using Azure.AI.OpenAI;
 using OpenAI.Assistants;
 using OpenAI.Files;
 using OpenAI.VectorStores;
-
-#pragma warning disable SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-#pragma warning disable CS8602 // Dereference of a possibly null reference.
+*/
 
 internal class Program
 {
     private static async Task Main(string[] args)
     {
-        string projectRoot;
-
+        #region Environment Configuration
         Console.WriteLine("Application starts");
-
-        // Get the base directory
-        DirectoryInfo baseDirectory = new(AppDomain.CurrentDomain.BaseDirectory);
-
-        // retrieve the project root folder
-        if (baseDirectory.Parent.Parent.Name == "bin")
-        {
-            projectRoot = baseDirectory.Parent.Parent.Parent.FullName;
-        }
-        else
-        {
-            projectRoot = baseDirectory.FullName;
-        }
-
-        string envFilePath = Path.Combine(projectRoot, "./../../config/credentials_my.env");
-        Console.WriteLine($"envFilePath: {envFilePath}");
-
-        // Load the environment variables from the .env file
-        Env.Load(envFilePath);
+        // Load configuration from environment variables or user secrets.
+        var aiSettings = new AISettings();
+        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {aiSettings.AzureOpenAI.Endpoint}\n" +
+        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {aiSettings.AzureOpenAI.ChatModelDeployment}" +
+        $"PROJECT_ENDPOINT: {aiSettings.AzureOpenAI.ProjectEndpoint}");
+        #endregion
 
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {Env.GetString("AZURE_OPENAI_ENDPOINT")}\n" +
             $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")}");
 
         // Instantiation of the Client for Azure OpenAI 
-        AzureOpenAIClient openaiClient = OpenAIAssistantAgent.CreateAzureOpenAIClient(
-            new AzureCliCredential(), new Uri(Env.GetString("AZURE_OPENAI_ENDPOINT")));
+        AzureOpenAIClient azure_openai_client = OpenAIAssistantAgent.CreateAzureOpenAIClient(
+            credential: new AzureCliCredential(), endpoint: new Uri(aiSettings.AzureOpenAI.Endpoint));
 
-#pragma warning disable OPENAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-        VectorStoreClient storeClient = openaiClient.GetVectorStoreClient();
-        CreateVectorStoreOperation operation = await storeClient.CreateVectorStoreAsync(waitUntilCompleted: true);
-#pragma warning restore OPENAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+        // Get the File Client
+        OpenAIFileClient fileClient = azure_openai_client.GetOpenAIFileClient();
 
-        string storeId = operation.VectorStoreId;
+        // Enumerate the existing files
+        IEnumerable<OpenAIFile> uploadedFiles = (await fileClient.GetFilesAsync()).Value;
+        Console.WriteLine($"There are {uploadedFiles.Count()} pre-existing files(s)");
 
-        // OpenAIAssistantFileSearch https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-assistant-search?pivots=programming-language-csharp
-        OpenAIFileClient fileClient = openaiClient.GetOpenAIFileClient();
+        // delete all files
+        foreach (var file in uploadedFiles)
+        {
+            Console.WriteLine($"Deleting File <Id: {file.Id}, Name: {file.Filename}>...");
+            await fileClient.DeleteFileAsync(file.Id);
+        }
 
+        // Identify and Upload the files to search in
+        var s_files_references_to_search_in = new List<OpenAIFile>();
         string[] s_files_to_search_in =
         [
-            "trailmaster_product_info_1.md",
+            "data/search_files/trailmaster_product_info_1.md",
         ];
-
-
-        Dictionary<string, OpenAIFile> fileReferences = [];
         foreach (string f in s_files_to_search_in)
         {
             OpenAIFile fileInfo = await fileClient.UploadFileAsync(f, FileUploadPurpose.Assistants);
-            await storeClient.AddFileToVectorStoreAsync(storeId, fileInfo.Id, waitUntilCompleted: true);
-            fileReferences.Add(fileInfo.Id, fileInfo);
+            s_files_references_to_search_in.Add(fileInfo);
+            Console.WriteLine($"File <{f}> uploaded as <{fileInfo.Id}>");
+        }
+
+        // Identify and Upload the files to work with
+        var s_id_files_to_work_with = new List<string>();
+        string[] s_files_to_work_with =
+        [
+            "data/codeinterpreter_files/turbines.csv",
+        ];
+        foreach (string f in s_files_to_work_with)
+        {
+            OpenAIFile fileInfo = await fileClient.UploadFileAsync(f, FileUploadPurpose.Assistants);
+            s_id_files_to_work_with.Add(fileInfo.Id);
+            Console.WriteLine($"File <{f}> uploaded as <{fileInfo.Id}>");
+        }
+
+        // Get the VectorStore Client
+        VectorStoreClient storeClient = azure_openai_client.GetVectorStoreClient();
+
+        // Enumerate the existing vectors stores
+        var vectorStores = await storeClient.GetVectorStoresAsync().ToListAsync();
+
+        // Delete all vector stores
+        Console.WriteLine($"There are {vectorStores.Count} pre-existing Vector Store(s)");
+        foreach (VectorStore v in vectorStores)
+        {
+            Console.WriteLine($"Deleting Vector Store with Id = <{v.Id}>...");
+            await storeClient.DeleteVectorStoreAsync(vectorStoreId: v.Id);
+        }
+
+        // Create a Vector Store and add the files to it
+        string storeId = (await storeClient.CreateVectorStoreAsync(waitUntilCompleted: true)).VectorStoreId;
+        Console.WriteLine($"New Vector Store created with Id = <{storeId}>");
+
+        foreach (OpenAIFile file in s_files_references_to_search_in) // if you want **ALL** files: (await fileClient.GetFilesAsync()).Value)
+        {
+            Console.WriteLine($"Adding new file <Id: {file.Id}, Name: {file.Filename}> to the <{storeId}> vector store...");
+            await storeClient.AddFileToVectorStoreAsync(storeId, file.Id, waitUntilCompleted: true);
+        }
+
+        // Get the ASSISTANT CLIENT
+        AssistantClient assistant_client = azure_openai_client.GetAssistantClient();
+
+        // Enumerate all assistants
+        var assistants = await assistant_client.GetAssistantsAsync().ToListAsync();
+
+        // Delete all assistants
+        Console.WriteLine($"There are {assistants.Count} pre-existing assistant(s)");
+        foreach (Assistant a in assistants)
+        {
+            Console.WriteLine($"Deleting Assistant <Id: {a.Id}, Name: {a.Name}>...");
+            await assistant_client.DeleteAssistantAsync(a.Id);
         }
 
 
-#pragma warning disable OPENAI001 // 'OpenAI.Assistants.AssistantClient' is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-        // Using the Azure OpenAI Client, now extract another Client for OpenAI Assistant Agent
-        AssistantClient assistant_client = openaiClient.GetAssistantClient();
-#pragma warning restore OPENAI001
-
-        // using the Client for OpenAI Assistant Agent, now either...
-        // ...EXTRACT the definition for a specific EXISTING OpenAI Assistant:
-        // var assistantDefinition = await assistantClient.GetAssistantAsync(assistantId: "");
-
-        //... or CREATE the definition for a NEW OpenAI Assistant:
-        string agent_name = "mauromi_assistant_agent_c#";
-        string instructions = "you are a clever agent";
-
-        var assistant_definition = await assistant_client.CreateAssistantAsync(
-            modelId: Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
-            name: agent_name,
-            instructions: instructions,
+        // Create an ASSISTANT (or ASSISTANT DEFINITION)        
+        Assistant assistant = await assistant_client.CreateAssistantAsync(
+            modelId: aiSettings.AzureOpenAI.ChatModelDeployment,
+            name: "mauromi's assistant",
+            description: "My first assistant",
+            instructions: "You are a clever assistant",
             enableCodeInterpreter: true,
+            codeInterpreterFileIds: s_id_files_to_work_with,
             enableFileSearch: true,
-            vectorStoreId: storeId
-        );
+            vectorStoreId: storeId);
+        Console.WriteLine($"Created new Assistant <{assistant.Name}> with Id <{assistant.Id}>");
 
-        // using the definition of a specific (new or existing) OpenAI Assistant, now we may directly instantiate an OpenAIAssistantAgent 
-        var sk_assistantagent = new OpenAIAssistantAgent(definition: assistant_definition, client: assistant_client); //, plugins: [lightsPlugin]);
+        // Create an assistant AGENT
+        var assistant_agent = new OpenAIAssistantAgent(definition: assistant, client: assistant_client);
 
-        // Add enterprise logging components
-        // TBI
-
-        // Create the conversation thread
-        Console.WriteLine("Creating thread...");
-        OpenAIAssistantAgentThread? sk_assistant_thread = null;
+        // Here we just define the AgentThread variable, without creating it
+        // AgentThread will be started and returned as part of the response
+        AgentThread? agent_thread = null;
 
         // Initiate a back-and-forth chat
+        bool exit_chat = false;
         string? user_input;
+
         do
         {
+            Console.Write("\nUser, e.g. 'tell me a joke with no less than 200 words', 'what's the Season Rating for the TrailMaster X4 Tent?', 'what is the earliest Maintenance_Date among the turbine with highest voltage?' > ");
+
             // Collect user input
-            Console.Write("\n\nPls ask your question, e.g. 'How many interior pockets does Trailmaster have?' OR 'Toggle the porch light and tell me all statuses' > ");
             user_input = Console.ReadLine();
-
-            if (!(string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)))
+            if (string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
             {
-                if (sk_assistant_thread == null)
-                {
-                    sk_assistant_thread = new(client: assistant_client);
-                }
-                // plugin status must be kept by the history, not the kernel             
-                Microsoft.SemanticKernel.KernelPlugin lights_plugin = sk_assistantagent.Kernel.Plugins.AddFromType<LightsPlugin>("Lights");
-
-                var message = new ChatMessageContent(AuthorRole.User, user_input);
-
-                await foreach (StreamingChatMessageContent response in sk_assistantagent.InvokeStreamingAsync(message: message, thread: sk_assistant_thread))
-                {
-                    // Display response.
-                    Console.Write($"{response.Content}");
-
-                    // SK does NOT need to add the response to the thread history
-                }
-
-                sk_assistantagent.Kernel.Plugins.Clear(); // better than sk_assistantagent.Kernel.Plugins.Remove(lights_plugin);
-
-                // collect the thread messages: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/agent-streaming?pivots=programming-language-csharp
-                ChatMessageContent[] messages = await sk_assistant_thread.GetMessagesAsync().ToArrayAsync();
-
-                Console.Write($"\nThere are {messages.Length} messages in the history. Enter 'Y' inf you want to clear the status, or anything else to keep the thread and its messages alive > ");
-                var clear_history = Console.ReadLine();
-                if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
-                {
-                    Console.WriteLine($"Deleting thread {sk_assistant_thread.Id}...");
-                    await sk_assistant_thread.DeleteAsync();
-                    sk_assistant_thread = null;
-                }
+                exit_chat = true;
+                break;
             }
 
-            Console.WriteLine();
+            // Generate the agent response(s)
+            await foreach (AgentResponseItem<StreamingChatMessageContent> response in assistant_agent.InvokeStreamingAsync( // streaming version
+            // await foreach (AgentResponseItem<ChatMessageContent> response in assistant_agent.InvokeAsync( // non streaming version
+                new ChatMessageContent(AuthorRole.User, user_input), thread: agent_thread))
+            {
+                // Process agent response(s)...
+                Console.Write($"{response.Message.Content}");
+                agent_thread = response.Thread;
+            }
 
-        } while (!(string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)));
-        Console.WriteLine("\nCleaning-up...");
+            Console.Write($"\n\nEnter 'Y' inf you want to clear the status, or anything else to keep the thread and its messages alive > ");
+            var clear_history = Console.ReadLine();
+            // Delete the thread if no longer needed
+            if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
+            {
+                // await agent_thread.DeleteAsync();
+                agent_thread = null;
+            }
 
-        if (sk_assistant_thread != null && sk_assistant_thread.Id != null)
-        {
-            Console.WriteLine($"Deleting thread {sk_assistant_thread.Id}...");
-            await sk_assistant_thread.DeleteAsync();
-        }
+        } while (!exit_chat);
 
-        Console.WriteLine($"Deleting store {storeId}...");
-        await storeClient.DeleteVectorStoreAsync(storeId);
-
-        Console.WriteLine($"Deleting assistant {sk_assistantagent.Name} ({sk_assistantagent.Id})...");
-        await assistant_client.DeleteAssistantAsync(sk_assistantagent.Id);
-
-        foreach (var f in fileReferences.Values)
-        {
-            Console.WriteLine($"Deleting file {f.Filename} ({f.Id})...");
-            await fileClient.DeleteFileAsync(f.Id);
-        }
-
-        /* alternatively, asynchronously wait for all the tasks to complete before moving on to the next line of code
-        await Task.WhenAll( // The program will 
-            [
-                agentThread.DeleteAsync(),
-                assistantClient.DeleteAssistantAsync(agent.Id),
-                storeClient.DeleteVectorStoreAsync(storeId),
-            ]);
-        */
     }
 }
-
-#pragma warning restore CS8602 // Dereference of a possibly null reference.
-#pragma warning restore SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.

@@ -16,6 +16,16 @@ public class LightsPlugin
             new LightModel { Id = 3, Name = "Chandelier", IsOn = false }
         };
 
+    [KernelFunction("reset_lights")]
+    [Description("Reset the state of all lights")]
+    [return: Description("An array of lights")]
+    public async Task<List<LightModel>> ResetLightsAsync()
+    {
+        await Task.CompletedTask;  // This line removes the warning
+        this._lights.ForEach(light => light.IsOn = false);
+        return this._lights;
+    }
+
     [KernelFunction("get_lights")]
     [Description("Gets a list of lights and their current state")]
     [return: Description("An array of lights")]

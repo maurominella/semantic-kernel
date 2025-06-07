@@ -105,7 +105,7 @@ internal class Program
             );
 
 
-            PersistentAgent sk_ai_agent;
+            PersistentAgent? sk_ai_agent;
             if (string.IsNullOrWhiteSpace(aiagent_id))
             {
                 sk_ai_agent = await aiproject_client.Administration.CreateAgentAsync(
