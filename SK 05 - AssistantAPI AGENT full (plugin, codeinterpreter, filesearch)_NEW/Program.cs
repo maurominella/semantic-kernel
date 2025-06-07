@@ -20,7 +20,7 @@ Package: Microsoft.SemanticKernel.Agents.OpenAI (prerelease) - Based on OpenAI A
 - Available on both OpenAI and Azure endpoints
 - Open AI announced deprecation by early 2026 (going away)
 */
-
+#region Libraries and Namespaces
 // dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --><PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.55.0-preview" />
 using Microsoft.SemanticKernel.Agents.OpenAI;
 using Azure.AI.OpenAI;
@@ -34,14 +34,12 @@ using Microsoft.SemanticKernel.ChatCompletion;
 // dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.14.0" />
 using Azure.Identity;
 
-// dotnet add package DotNetEnv --> <PackageReference Include="DotNetEnv" Version="3.1.1" />
-using DotNetEnv;
-
 // contains the LightsPlugin class
 using MyApp.Plugins;
 
 // contains the AISettings class
 namespace LLMSettings;
+#endregion
 
 internal class Program
 {
@@ -50,15 +48,15 @@ internal class Program
         #region Environment Configuration
         Console.WriteLine("Application starts");
         // Load configuration from environment variables or user secrets.
-        var aiSettings = new AISettings();
-        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {aiSettings.AzureOpenAI.Endpoint}\n" +
-        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {aiSettings.AzureOpenAI.ChatModelDeployment}\n" +
-        $"PROJECT_ENDPOINT: {aiSettings.AzureOpenAI.ProjectEndpoint}\n");
+        var ai_settings = new AISettings();
+        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {ai_settings.AzureOpenAI.Endpoint}\n" +
+        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {ai_settings.AzureOpenAI.ChatModelDeployment}\n" +
+        $"PROJECT_ENDPOINT: {ai_settings.AzureOpenAI.ProjectEndpoint}\n");
         #endregion
 
-        // Instantiation of the Client for Azure OpenAI 
+        // Instantiation of the Assistant API Client for Azure OpenAI 
         AzureOpenAIClient azure_openai_client = OpenAIAssistantAgent.CreateAzureOpenAIClient(
-            credential: new AzureCliCredential(), endpoint: new Uri(aiSettings.AzureOpenAI.Endpoint));
+            credential: new AzureCliCredential(), endpoint: new Uri(ai_settings.AzureOpenAI.Endpoint));
 
         // Get the File Client
         OpenAIFileClient file_client = azure_openai_client.GetOpenAIFileClient();
@@ -75,7 +73,7 @@ internal class Program
         }
 
         // Identify and Upload the files to search in, with the openai assistant search feature
-        var s_opeaifiles_to_search_in = new List<OpenAIFile>();
+        var s_openaifiles_to_search_in = new List<OpenAIFile>();
         string[] s_files_to_search_in =
         [
             "data/search_files/trailmaster_product_info_1.md",
@@ -83,7 +81,7 @@ internal class Program
         foreach (string f in s_files_to_search_in)
         {
             OpenAIFile fileInfo = await file_client.UploadFileAsync(f, FileUploadPurpose.Assistants);
-            s_opeaifiles_to_search_in.Add(fileInfo);
+            s_openaifiles_to_search_in.Add(fileInfo);
             Console.WriteLine($"File <{f}> uploaded as <{fileInfo.Id}>");
         }
 
@@ -118,13 +116,13 @@ internal class Program
         string storeId = (await storeClient.CreateVectorStoreAsync(waitUntilCompleted: true)).VectorStoreId;
         Console.WriteLine($"New Vector Store created with Id = <{storeId}>");
 
-        foreach (OpenAIFile file in s_opeaifiles_to_search_in) // if you want **ALL** files: (await fileClient.GetFilesAsync()).Value)
+        foreach (OpenAIFile file in s_openaifiles_to_search_in) // if you want **ALL** files: (await fileClient.GetFilesAsync()).Value)
         {
             Console.WriteLine($"Adding new file <Id: {file.Id}, Name: {file.Filename}> to the <{storeId}> vector store...");
             await storeClient.AddFileToVectorStoreAsync(storeId, file.Id, waitUntilCompleted: true);
         }
 
-        // Get the ASSISTANT CLIENT
+        // Get the ASSISTANT API CLIENT
         AssistantClient assistant_client = azure_openai_client.GetAssistantClient();
 
         // Enumerate all assistants
@@ -138,9 +136,9 @@ internal class Program
             await assistant_client.DeleteAssistantAsync(a.Id);
         }
 
-        // Create an ASSISTANT (or ASSISTANT DEFINITION)        
+        // Create an ASSISTANT (or ASSISTANT DEFINITION)
         Assistant assistant = await assistant_client.CreateAssistantAsync(
-            modelId: aiSettings.AzureOpenAI.ChatModelDeployment, // deployment name
+            modelId: ai_settings.AzureOpenAI.ChatModelDeployment, // deployment name
             name: "mauromi's assistant",
             description: "My first assistant",
             instructions: "You are a clever assistant",
@@ -151,10 +149,10 @@ internal class Program
         Console.WriteLine($"Created new Assistant <{assistant.Name}> with Id <{assistant.Id}>");
 
         // Create an assistant AGENT
-        var assistant_agent = new OpenAIAssistantAgent(definition: assistant, client: assistant_client);
+        var sk_assistantapi_agent = new OpenAIAssistantAgent(definition: assistant, client: assistant_client);
 
         // Add a plugin to the assistant agent
-        assistant_agent.Kernel.Plugins.AddFromType<LightsPlugin>("Lights");
+        sk_assistantapi_agent.Kernel.Plugins.AddFromType<LightsPlugin>("Lights");
 
         // Here we just define (without creating) the AgentThread variable
         // An AgentThread will be started and returned as part of the response
@@ -185,7 +183,7 @@ Your turn > ");
             }
 
             // Generate the agent response(s)
-            await foreach (AgentResponseItem<StreamingChatMessageContent> response in assistant_agent.InvokeStreamingAsync( // streaming version
+            await foreach (AgentResponseItem<StreamingChatMessageContent> response in sk_assistantapi_agent.InvokeStreamingAsync( // streaming version
             // await foreach (AgentResponseItem<ChatMessageContent> response in assistant_agent.InvokeAsync( // non streaming version
                 new ChatMessageContent(AuthorRole.User, user_input), thread: agent_thread))
             {
