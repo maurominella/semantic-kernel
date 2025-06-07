@@ -36,13 +36,13 @@ using Azure.Identity;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 
-using MyApp.Plugins;
+using MyApp.Plugins; // contains the LightsPlugin class
 using Azure.AI.OpenAI;
 using OpenAI.Files;
 using OpenAI.Assistants;
 using System.Diagnostics;
 
-namespace LLMSettings;
+namespace LLMSettings; // contains the AISettings class
 
 internal class Program
 {
@@ -79,7 +79,7 @@ internal class Program
         Console.WriteLine("\n\n\n+++++++++++++++++ Semantic Kernel Assistant Agent +++++++++++++++++\n");
 
         System.Collections.Generic.List<string> files_to_search_in = RetrieveAssistantFilesPath("./assistant_files");
-        Console.WriteLine($"Files to search in: {string.Join(", ", files_to_search_in)}");        
+        Console.WriteLine($"Files to search in: {string.Join(", ", files_to_search_in)}");
 
         // library Microsoft.SemanticKernel.Agents.OpenAI for OpenAIAssistantAgent
         OpenAIAssistantAgent? sk_assistant_agent = await GenericCreateAgentAsync(
@@ -150,7 +150,7 @@ internal class Program
 
             // Add a plugin (the LightsPlugin class is defined in its dedicated file LightsPlugin.cs)
             kernel.Plugins.AddFromType<LightsPlugin>("Lights");
-            
+
             // Enable planning
             // library Microsoft.SemanticKernel + Microsoft.SemanticKernel.Connectors.AzureOpenAI
             var azureOpenAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
@@ -192,12 +192,12 @@ internal class Program
 
             // Using the Azure OpenAI Client, now extract another Client for OpenAI Assistant Agent
             AssistantClient assistantClient = openaiClient.GetAssistantClient();
-            
+
             var assistantDefinition = await assistantClient.CreateAssistantAsync(
                 modelId: ai_settings.AzureOpenAI.ChatModelDeployment,
                 name: agent_name,
                 instructions: instructions,
-                enableCodeInterpreter: enableCodeInterpreter, 
+                enableCodeInterpreter: enableCodeInterpreter,
                 codeInterpreterFileIds: codeInterpreterFileIds
             );
 
@@ -235,7 +235,7 @@ internal class Program
                 // Create Semantic Kernel AGENT, based on the agent definition (called "model" in this call)
                 // library is Microsoft.SemanticKernel.Agents.AzureAI for AzureAIAgent
                 var sk_ai_agent = new AzureAIAgent(
-                    model:sk_agent_definition, client:sk_agents_client);
+                    model: sk_agent_definition, client: sk_agents_client);
 
                 agent = sk_ai_agent;
             }
@@ -247,7 +247,7 @@ internal class Program
                 // Create Semantic Kernel AGENT, based on the agent definition (called "model" in this call)
                 // library is Microsoft.SemanticKernel.Agents.AzureAI for AzureAIAgent
                 var sk_ai_agent = new AzureAIAgent(
-                    model:sk_agent_definition, client:sk_agents_client);
+                    model: sk_agent_definition, client: sk_agents_client);
 
                 agent = sk_ai_agent;
             }
@@ -263,10 +263,10 @@ internal class Program
         bool exit_chat = false;
         string? user_input;
 
-        try 
+        try
         {
             // define (without instantiating) the thread object for each agent type
-            Microsoft.SemanticKernel.Agents.ChatHistoryAgentThread? sk_chatcompletionagent_thread = null;            
+            Microsoft.SemanticKernel.Agents.ChatHistoryAgentThread? sk_chatcompletionagent_thread = null;
             Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgentThread? sk_assistant_thread = null;
             Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgentThread? sk_aiagent_thread = null;
 
@@ -288,8 +288,8 @@ internal class Program
                     if (sk_chatcompletionagent_thread == null || sk_chatcompletionagent_thread.IsDeleted) // short-circuiting ;-)
                     {
                         sk_chatcompletionagent_thread = new ChatHistoryAgentThread();
-                    }                    
-                     
+                    }
+
                     try
                     {
                         bool isCode = false;
@@ -318,7 +318,7 @@ internal class Program
                         Console.WriteLine($"Error (but don't worry, we can continue ;-)): {ex.Message}");
                         exit_chat = true;
                     }
-                    
+
                     finally
                     {
                         Console.Write($"\nThere are some messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive.");
@@ -338,11 +338,11 @@ internal class Program
                 }
                 // is it an OpenAIAssistantAgent agent (e.g. Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent)?
                 else if (agent is Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent sk_assistant_agent)
-                {                     
+                {
                     if (sk_assistant_thread == null || sk_assistant_thread.IsDeleted) // short-circuiting ;-)
                     {
                         sk_assistant_thread = new(client: sk_assistant_agent.Client);
-                    }                    
+                    }
 
                     System.Collections.Generic.List<string> files_to_download = [];
                     try
@@ -401,7 +401,7 @@ internal class Program
                         // just for testing
                         ChatMessageContent[] messages = await sk_assistant_thread.GetMessagesAsync().ToArrayAsync();
 
-                        int messages_count=0;
+                        int messages_count = 0;
                         await foreach (var message in sk_assistant_thread.GetMessagesAsync())
                         {
                             messages_count++;
@@ -464,7 +464,7 @@ internal class Program
                         // collect the thread messages: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/agent-streaming?pivots=programming-language-csharp
                         ChatMessageContent[] messages = await sk_aiagent_thread.GetMessagesAsync().ToArrayAsync();
 
-                        int messages_count=0; // count the nr of messages we have in the thread
+                        int messages_count = 0; // count the nr of messages we have in the thread
                         await foreach (var message in sk_aiagent_thread.GetMessagesAsync())
                         {
                             messages_count++;
@@ -491,18 +491,18 @@ internal class Program
         {
             if (delete_agent_after_chat && agent is Microsoft.SemanticKernel.Agents.ChatCompletionAgent sk_chatcompletion_agent)
             {
-                Console.WriteLine($"ChatCompletion agent {sk_chatcompletion_agent.Name}({sk_chatcompletion_agent.Id}) is automatically destroyed");                
+                Console.WriteLine($"ChatCompletion agent {sk_chatcompletion_agent.Name}({sk_chatcompletion_agent.Id}) is automatically destroyed");
             }
             else if (delete_agent_after_chat && agent is Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent sk_assistant_agent)
             {
                 Console.WriteLine($"Deleting assistant {sk_assistant_agent.Name} ({sk_assistant_agent.Id})...");
                 await sk_assistant_agent.Client.DeleteAssistantAsync(assistantId: sk_assistant_agent.Id);
-            }            
+            }
             else if (delete_agent_after_chat && agent is Microsoft.SemanticKernel.Agents.AzureAI.AzureAIAgent sk_ai_agent)
             {
                 Console.WriteLine($"Deleting agent {sk_ai_agent.Name}({sk_ai_agent.Id})...");
                 await sk_ai_agent.Client.DeleteAgentAsync(agentId: sk_ai_agent.Id);
-            }            
+            }
         }
     }
 
@@ -518,11 +518,11 @@ internal class Program
     // Helper function to suggest a question hint based on the agent type
     private static string QuestionHinter(object agent)
     {
-        string hint="";
+        string hint = "";
         if (agent is Microsoft.SemanticKernel.Agents.ChatCompletionAgent sk_chatcompletion_agent)
         {
             hint = $"agent <{sk_chatcompletion_agent.Name}> of type <ChatCompletionAgent>, e.g. 'Toggle the porch light and give me the status of all the lights'";
-        }        
+        }
         else if (agent is Microsoft.SemanticKernel.Agents.OpenAI.OpenAIAssistantAgent sk_assistant_agent)
         {
             hint = $"agent <{sk_assistant_agent.Name}> of type <OpenAIAssistantAgent>, e.g. 'Please create a 3D pie chart with the top 6 countries by population in Europe'";
@@ -558,7 +558,7 @@ internal class Program
             ConnectionList = { new ToolConnection(bingConnection.Id) }
         };
         var bingGroundingTool = new BingGroundingToolDefinition(connectionList);
-        var tools = new List<BingGroundingToolDefinition>{bingGroundingTool};
+        var tools = new List<BingGroundingToolDefinition> { bingGroundingTool };
         return tools;
     }
 

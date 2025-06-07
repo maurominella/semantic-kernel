@@ -12,7 +12,7 @@ using Microsoft.Extensions.Configuration;
 using DotNetEnv;
 
 
-namespace LLMSettings;
+namespace LLMSettings; // defines the current namespace with the AISettings class
 /*
 # SETTINGS FOR .NET
 # - Azure OpenAI for .NET

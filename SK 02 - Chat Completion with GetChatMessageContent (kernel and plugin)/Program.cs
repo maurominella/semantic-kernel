@@ -9,12 +9,13 @@
 
 // Base sample: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/examples/example-chat-agent?pivots=programming-language-csharp
 
+#region Libraries and Namespaces
 // dotnet add package Microsoft.Extensions.Logging.Console --> <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.5" />
 // dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.5" />
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging; // needed for LogLevel
 
 // dotnet add package Microsoft.Extensions.DependencyInjection --> <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.5" />
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection; // needed for AddLogging
 
 // dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.54.0" />
 using Microsoft.SemanticKernel;
@@ -24,8 +25,8 @@ using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 // dotnet add package DotNetEnv --> <PackageReference Include="DotNetEnv" Version="3.1.1" />
 using DotNetEnv;
 
-using AIPlugins;
-
+using AIPlugins; // contains the LightsPlugin class
+#endregion
 
 string projectRoot;
 
@@ -52,15 +53,14 @@ Console.WriteLine($"envFilePath: {envFilePath}");
 // Load the environment variables from the .env file
 Env.Load(envFilePath);
 
-// Populate values from your OpenAI deployment
-var modelId = Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME");
-var endpoint = Env.GetString("AZURE_OPENAI_ENDPOINT");
-var apiKey = Env.GetString("AZURE_OPENAI_API_KEY");
 
-Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {endpoint}\nAZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {modelId}");
+Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {Env.GetString("AZURE_OPENAI_ENDPOINT")}\nAZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")}");
 
 // Create the kernel builder with the pointer to Azure OpenAI
-var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(modelId, endpoint, apiKey);
+Microsoft.SemanticKernel.IKernelBuilder builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
+    endpoint: Env.GetString("AZURE_OPENAI_ENDPOINT"),
+    apiKey: Env.GetString("AZURE_OPENAI_API_KEY"),
+    deploymentName: Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"));
 
 // Use the kernel builder to add enterprise components (for logging, in this case)
 builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.None));
@@ -72,9 +72,15 @@ Kernel kernel = builder.Build();
 // kernel.Plugins.AddFromType<LightsPlugin>("Lights");
 
 // Enable planning
-var openAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
+// if "pure" OpenAI, please use      OpenAIPromptExecutionSettings
+// in Azure OpenAI, we have     AzureOpenAIPromptExecutionSettings
+var azureOpenAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
 {
     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
+};
+var kernelArguments = new KernelArguments(azureOpenAIPromptExecutionSettings) // optional            
+{
+    { "repository", "microsoft/semantic-kernel" }
 };
 
 // Create a history store the conversation
@@ -104,7 +110,7 @@ do
         // Get the response from the AI
         var result = await chatCompletionService.GetChatMessageContentAsync(
             history,
-            executionSettings: openAIPromptExecutionSettings,
+            executionSettings: azureOpenAIPromptExecutionSettings,
             kernel: kernel);
 
         // Print the results

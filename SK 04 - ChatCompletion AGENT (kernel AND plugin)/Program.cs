@@ -4,11 +4,13 @@
 
 // Import packages
 
-// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.4" />
-using Microsoft.Extensions.Logging;
+// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.5" />
+// dotnet add package Microsoft.Extensions.Logging.Console --> <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.5" />
+using Microsoft.Extensions.Logging; // needed for LogLevel
 
 // dotnet add package Microsoft.Extensions.DependencyInjection --> <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.5" />
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection; // needed for AddLogging
+
 
 // dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.55.0" />
 using Microsoft.SemanticKernel;
@@ -56,33 +58,32 @@ Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {endpoint}\nAZURE_OPENAI_CHAT_DEPLOYM
 // Create the kernel builder with the pointer to Azure OpenAI
 var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(modelId, endpoint, apiKey);
 
-
-
 // Use the kernel builder to add enterprise components (for logging, in this case)
 builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.None));
 
 // Build the kernel
 Kernel kernel = builder.Build();
 
+// add the plugin to the kernel
+Microsoft.SemanticKernel.KernelPlugin lights_plugin = kernel.Plugins.AddFromType<LightsPlugin>("Lights");
+
 // Enable planning
-// if "pure" OpenAI, please use OpenAIPromptExecutionSettings
-// in Azure OpenAI, we have     AzureChatPromptExecutionSettings
+// if "pure" OpenAI, please use      OpenAIPromptExecutionSettings
+// in Azure OpenAI, we have     AzureOpenAIPromptExecutionSettings
 var azureOpenAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
 {
     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
 };
-var kernelArguments = new KernelArguments(azureOpenAIPromptExecutionSettings)
-// optional
+var kernelArguments = new KernelArguments(azureOpenAIPromptExecutionSettings) // optional            
 {
     { "repository", "microsoft/semantic-kernel" }
 };
 
-string agent_name = "agent_name";
+string agent_name = "sk_chatcompletion_agent";
 string instructions = "you are a clever agent";
 
-Console.WriteLine("\nDefining completion Agent...");
+Console.WriteLine("\nDefining a chat completion completion Agent...");
 
-#pragma warning disable SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 var sk_chatcompletion_agent = new ChatCompletionAgent
 {
     Name = agent_name,
@@ -90,12 +91,11 @@ var sk_chatcompletion_agent = new ChatCompletionAgent
     Kernel = kernel,
     Arguments = kernelArguments ?? new KernelArguments() // Provide a default value if kernelArguments is null
 };
-#pragma warning restore SKEXP0110 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
 Console.WriteLine("...completion Agent is ready.");
 
 // Create a history store the conversation, however use ChatHistoryAgentThread instead of ChatHistory, which is deprecated
-var sk_chatcompletionagent_thread = new ChatHistoryAgentThread(); // new 
+var sk_chatcompletionagent_thread = new ChatHistoryAgentThread();
 
 // Initiate a back-and-forth chat
 string? user_input;
@@ -109,9 +109,6 @@ do
     // Check if userInput is not null before adding it to the chat history
     if (!(string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase)))
     {
-        // plugin status must be kept by the history, not the kernel
-        Microsoft.SemanticKernel.KernelPlugin lights_plugin = kernel.Plugins.AddFromType<LightsPlugin>("Lights");
-
         var message = new ChatMessageContent(AuthorRole.User, user_input);
 
         // await foreach (ChatMessageContent response in sk_chatcompletion_agent.InvokeAsync(message: message, thread: sk_chatcompletionagent_thread))
@@ -120,7 +117,6 @@ do
             Console.Write($"{response.Content}");
         }
 
-        kernel.Plugins.Remove(lights_plugin);
 
         Console.Write($"\nThere are {sk_chatcompletionagent_thread.ChatHistory.Count()} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive. > ");
         var clear_history = Console.ReadLine();
@@ -140,8 +136,8 @@ if (sk_chatcompletionagent_thread.Id is not null)
     await sk_chatcompletionagent_thread.DeleteAsync();
 }
 
-// delete the agent
-Console.WriteLine($"\nDeleting agent {sk_chatcompletion_agent.Id}...");
-// await sk_chatcompletion_agent.DeleteAsync();
+// deallocate the agent
+Console.WriteLine($"Deallocating agent {sk_chatcompletion_agent.Id} that is just an instance of ChatCompletionAgent...");
+sk_chatcompletion_agent = null;
 
 Console.WriteLine("Application ends");

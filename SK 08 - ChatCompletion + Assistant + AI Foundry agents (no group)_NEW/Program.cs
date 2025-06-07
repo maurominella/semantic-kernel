@@ -2,44 +2,56 @@
 
 // Last update: June 6th, 2025
 
-// Microsoft.SemanticKernel.Agents.AzureAI library documentation: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/azure-ai-agent?pivots=programming-language-csharp
-// Azure.AI.Agents.Persistent Namespace: https://learn.microsoft.com/en-us/dotnet/api/azure.ai.agents.persistent?view=azure-dotnet
-// AzureAIAgent Foundry GA Migration Guide: https://learn.microsoft.com/en-us/semantic-kernel/support/migration/azureagent-foundry-ga-migration-guide?pivots=programming-language-csharp
-// Azure.AI.Agents.Persistent Namespace: https://learn.microsoft.com/en-us/dotnet/api/azure.ai.agents.persistent?view=azure-dotnet
-// Microsoft.SemanticKernel.Agents Namespace (prerelease): https://learn.microsoft.com/it-it/dotnet/api/microsoft.semantickernel.agents?view=semantic-kernel-dotnet
+// Created with: dotnet new console -n "SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group)_NEW" --framework net9.0
 
 /*
+Supporting documentation:
+- Microsoft.SemanticKernel.Agents.AzureAI library documentation: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/azure-ai-agent?pivots=programming-language-csharp
+- Azure.AI.Agents.Persistent Namespace: https://learn.microsoft.com/en-us/dotnet/api/azure.ai.agents.persistent?view=azure-dotnet
+- AzureAIAgent Foundry GA Migration Guide: https://learn.microsoft.com/en-us/semantic-kernel/support/migration/azureagent-foundry-ga-migration-guide?pivots=programming-language-csharp
+- Azure.AI.Agents.Persistent Namespace: https://learn.microsoft.com/en-us/dotnet/api/azure.ai.agents.persistent?view=azure-dotnet
+- Microsoft.SemanticKernel.Agents Namespace (prerelease): https://learn.microsoft.com/it-it/dotnet/api/microsoft.semantickernel.agents?view=semantic-kernel-dotnet
+- Create Agent with Bing Grounding: https://www.nuget.org/packages/Azure.AI.Agents.Persistent/1.0.0#create-agent-with-bing-grounding
+
 Features included:
 - Azure.AI.Agents.Persistent library
 - Microsoft.SemanticKernel.Agents.AzureAI library
 - Bing Grounding tool
 - Multiple types of agents
-
+- Single function for agent creation
+- Single function for chatting with agents
 */
 
-// Create Agent with Bing Grounding: https://www.nuget.org/packages/Azure.AI.Agents.Persistent/1.0.0#create-agent-with-bing-grounding
+#region Libraries and Namespaces
+using Azure;
 
-// dotnet new console -n "SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group)_NEW" --framework net9.0
+// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.5" />
+// dotnet add package Microsoft.Extensions.Logging.Console --> <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.5" />
+using Microsoft.Extensions.Logging; // needed for LogLevel
+
+// dotnet add package Microsoft.Extensions.DependencyInjection --> <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.5" />
+using Microsoft.Extensions.DependencyInjection; // needed for AddLogging
 
 // dotnet add package Azure.AI.Agents.Persistent --> <PackageReference Include="Azure.AI.Agents.Persistent" Version="1.0.0" />
-using Azure.AI.Agents.Persistent;
+using Azure.AI.Agents.Persistent; // needed for PersistentAgentsClient, PersistentAgent, PersistentAgentThread, PersistentThreadMessage, ThreadRun, RunStatus, MessageRole, MessageContent, MessageTextContent, MessageImageFileContent, BingGroundingToolDefinition, BingGroundingSearchToolParameters, BingGroundingSearchConfiguration
 
 // dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.55.0" />
 using Microsoft.SemanticKernel.Agents; // needed for ChatCompletion
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
 // dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.55.0-preview" />
 using Microsoft.SemanticKernel.Agents.AzureAI;
 
-
 // dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.14.0" />
 using Azure.Identity;
-using Azure;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
-using Microsoft.Extensions.Logging;
+using Microsoft.SemanticKernel.ChatCompletion;
+
+using AIPlugins; // contains the LightsPlugin class
 
 namespace LLMSettings;
 
+#endregion
 
 internal class Program
 {
@@ -55,9 +67,7 @@ internal class Program
         $"PROJECT_ENDPOINT: {ai_settings.AzureOpenAI.ProjectEndpoint}");
         #endregion
 
-        #region Semantic Kernel ChatCompletion Agent with Plugin
-        Console.WriteLine("\n\n\n+++++++++++++++++ Semantic Kernel ChatCompletion Agent with Plugin +++++++++++++++++\n");
-
+        #region Semantic Kernel ChatCompletion Agent
         // library Microsoft.SemanticKernel.Agents for ChatCompletionAgent
         ChatCompletionAgent? sk_chatcompletion_agent = await GenericCreateAgentAsync(
             ai_settings: ai_settings,
@@ -67,6 +77,16 @@ internal class Program
             ) as ChatCompletionAgent;
 
         // chat with the agent
+        try
+        {
+            await ChatWithAgentAsync(agent: sk_chatcompletion_agent);
+        }
+        finally
+        {
+            // deallocate the agent
+            Console.WriteLine($"Deallocating agent {sk_chatcompletion_agent.Id} that is just an instance of ChatCompletionAgent...");
+            sk_chatcompletion_agent = null;
+        }
         // await GenericChatWithAgentAsync(sk_chatcompletion_agent, delete_agent_after_chat: false);
         #endregion
 
@@ -81,7 +101,7 @@ internal class Program
 
         // Microsoft.SemanticKernel.Agents.AzureAI    
         PersistentAgent? sk_ai_agent = await GenericCreateAgentAsync(
-            agent_type: "azure_aifoundry_agent",
+            agent_type: "sk_azure_aifoundry_agent",
             agent_name: "AnimalPicker",
             aiagent_id: s_aiagent_id,
             aiproject_client: aiproject_client,
@@ -108,9 +128,6 @@ internal class Program
         string agent_type, string? agent_name = null, PersistentAgentsClient? aiproject_client = null, string? aiproject_endpoint = null,
         AISettings? ai_settings = null, string? instructions = null, string? aiagent_id = null)
     {
-        // There are two options to create the Azure AI Foundry Agent
-        // - to create an Azure AI Foundry SDK object, we can directly create it with the Azure AI Foundry SDK
-        // - to create a Semantic Kernel SDK object, two steps are needed: Azure AI Foundry SDK object + SK object that relies on the Azure SDK object
 
         object? agent = null;
 
@@ -123,26 +140,29 @@ internal class Program
         if (agent_type == "sk_chatcompletion_agent")
         {
             // Create the kernel builder with the pointer to Azure OpenAI
-            var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
+            Microsoft.SemanticKernel.IKernelBuilder builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
                 deploymentName: ai_settings.AzureOpenAI.ChatModelDeployment,
                 endpoint: ai_settings.AzureOpenAI.Endpoint,
                 apiKey: ai_settings.AzureOpenAI.ApiKey);
 
             // Use the kernel builder to add enterprise components (for logging, in this case)
-            // builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.None)); // fix this
+            // Requires Microsoft.Extensions.Logging and Microsoft.Extensions.DependencyInjection
+            builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.None));
 
             // Build the kernel
             Kernel kernel = builder.Build();
 
+            // add the plugin to the kernel
+            Microsoft.SemanticKernel.KernelPlugin lights_plugin = kernel.Plugins.AddFromType<LightsPlugin>("Lights");
+
             // Enable planning
-            // if "pure" OpenAI, please use OpenAIPromptExecutionSettings
-            // in Azure OpenAI, we have     AzureChatPromptExecutionSettings
+            // if "pure" OpenAI, please use      OpenAIPromptExecutionSettings
+            // in Azure OpenAI, we have     AzureOpenAIPromptExecutionSettings
             var azureOpenAIPromptExecutionSettings = new AzureOpenAIPromptExecutionSettings
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
             };
-            var kernelArguments = new KernelArguments(azureOpenAIPromptExecutionSettings)
-            // optional
+            var kernelArguments = new KernelArguments(azureOpenAIPromptExecutionSettings) // optional            
             {
                 { "repository", "microsoft/semantic-kernel" }
             };
@@ -154,8 +174,10 @@ internal class Program
                 Kernel = kernel,
                 Arguments = kernelArguments ?? new KernelArguments() // Provide a default value if kernelArguments is null
             };
+
+            agent = sk_chatcompletion_agent;
         }
-        else if (agent_type == "azure_aifoundry_agent")
+        else if (agent_type == "sk_azure_aifoundry_agent")
         {
 
             BingGroundingToolDefinition bingGroundingTool = new(
@@ -163,7 +185,6 @@ internal class Program
                     [new BingGroundingSearchConfiguration(connectionId: ai_settings.GetVariable("BING_CONNECTION_ID"))]
                 )
             );
-
 
             PersistentAgent sk_ai_agent;
             if (string.IsNullOrWhiteSpace(aiagent_id))
@@ -198,21 +219,66 @@ internal class Program
         bool exit_chat = false;
         string? user_input;
 
-        do
+        if (agent is ChatCompletionAgent sk_chatcompletion_agent)
         {
-            Console.Write("\nUser, e.g. 'what is the biggest insect?' > ");
+            // Create a history store the conversation, however use ChatHistoryAgentThread instead of ChatHistory, which is deprecated
+            var sk_chatcompletionagent_thread = new ChatHistoryAgentThread();
 
-            // Collect user input
-            user_input = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
+            Console.Write("\nWelcome to the ChatCompletionAgent! Ask me anything, or type 'EXIT' to quit.\n");
+            do
             {
-                exit_chat = true;
-                break;
-            }
+                Console.Write("\nUser, e.g. 'Toggle chandelier light and tell me all lights status' > ");
 
-            // Azure.AI.Agents.Persistent.PersistentAgent
-            if (agent is PersistentAgent sk_ai_agent)
+                // Collect user input
+                user_input = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
+                {
+                    exit_chat = true;
+                    break;
+                }
+
+                Console.WriteLine("Chatting with the ChatCompletionAgent...");
+                var message = new ChatMessageContent(AuthorRole.User, user_input);
+
+                // await foreach (ChatMessageContent response in sk_chatcompletion_agent.InvokeAsync(message: message, thread: sk_chatcompletionagent_thread))
+                await foreach (StreamingChatMessageContent response in sk_chatcompletion_agent.InvokeStreamingAsync(
+                    message: message, thread: sk_chatcompletionagent_thread))
+                {
+                    Console.Write($"{response.Content}");
+                }
+
+                Console.Write($"\nThere are {sk_chatcompletionagent_thread.ChatHistory.Count()} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive. > ");
+                var clear_history = Console.ReadLine();
+                if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
+                {
+                    await foreach (StreamingChatMessageContent response in sk_chatcompletion_agent.InvokeStreamingAsync(
+                        message: new ChatMessageContent(AuthorRole.User, "Reset lights status"),
+                        thread: sk_chatcompletionagent_thread))
+                    {
+                        Console.Write($"{response.Content}");
+                    }
+
+                    sk_chatcompletionagent_thread.ChatHistory.Clear();
+                }
+            } while (!exit_chat);
+        }
+
+        else if (agent is PersistentAgent sk_ai_agent)
+        {
+            Console.Write("\nWelcome to the AI Foundry agent! Ask me anything, or type 'EXIT' to quit.\n");
+            do
             {
+                Console.Write("\nUser, e.g. 'what is the biggest insect?' > ");
+
+                // Collect user input
+                user_input = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
+                {
+                    exit_chat = true;
+                    break;
+                }
+
+                Console.WriteLine("Chatting with the AI Foundry agent...");
                 PersistentAgentThread thread = await aiproject_client.Threads.CreateThreadAsync();
                 PersistentThreadMessage message = await aiproject_client.Messages.CreateMessageAsync(
                     thread.Id,
@@ -231,11 +297,6 @@ internal class Program
                 }
                 while (run.Status == RunStatus.Queued
                     || run.Status == RunStatus.InProgress);
-
-                /* Assert.AreEqual(
-                    RunStatus.Completed,
-                    run.Status,
-                    run.LastError?.Message);*/
 
                 // Retrieve the messages from the run: assuming the run successfully completed, listing messages from the thread that was run will now reflect new information added by the agent
 
@@ -260,19 +321,34 @@ internal class Program
                         Console.WriteLine();
                     }
                 }
+            } while (!exit_chat);
 
-            }
-        } while (!exit_chat);
+        }
     }
 
 
     // Helper function to read the agent's instructions based on its name
     private static async Task<string> ReadAgentInstructionsAsync(string agent_name)
     {
-        string instructions;
         string filePath = Path.Combine("agents", $"{agent_name}.txt");
-        instructions = await File.ReadAllTextAsync(filePath);
-        return instructions;
+
+        if (!File.Exists(filePath))
+        {
+            return "You are a clever agent";
+        }
+
+        try
+        {
+            return await File.ReadAllTextAsync(filePath);
+        }
+        catch (IOException ex)
+        {
+            return $"IO error occurred: {ex.Message}";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return $"Access error occurred: {ex.Message}";
+        }
     }
 
 }
