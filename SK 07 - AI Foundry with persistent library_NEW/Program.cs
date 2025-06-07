@@ -140,7 +140,15 @@ internal class Program
 
         do
         {
-            Console.Write("\nUser, e.g. 'what is the biggest insect?' > ");
+            Console.Write(@"
+Please ask me something, or type 'EXIT' to end the conversation.
+Examples of questions you can ask:
+- what is the biggest insect? (e.g. grounding with Bing Search),
+- what's the animal of the year for 2024? (e.g. grounding with Bing Search),
+- what's the biggest mammal? (e.g. grounding with Bing Search),
+- qual è l'animale più grande, che però non nuota? (e.g. grounding with Bing Search),
+
+Your turn > ");
 
             // Collect user input
             user_input = Console.ReadLine();

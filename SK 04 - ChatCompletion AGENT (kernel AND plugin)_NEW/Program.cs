@@ -103,7 +103,14 @@ do
 // #pragma warning disable CS8602 // Dereference of a possibly null reference.
 {
     // Collect user input
-    Console.Write("\n\nPls ask your question, e.g. 'Toggle chandelier light and tell me all lights status' > ");
+    Console.Write(@"
+Please ask me something, or type 'EXIT' to end the conversation.
+Examples of questions you can ask:
+- how many feets are there in a mile? (e.g. normal Chat Completion, to show how the history is stored),
+- toggle the chandelier and tell me the status of all lights (e.g. Plugin usage),
+- tell me a joke with no less than 200 words (e.g. normal Chat Completion, to show streaming features),
+
+Your turn > ");
     user_input = Console.ReadLine();
 
     // Check if userInput is not null before adding it to the chat history
@@ -118,7 +125,7 @@ do
         }
 
 
-        Console.Write($"\nThere are {sk_chatcompletionagent_thread.ChatHistory.Count()} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive. > ");
+        Console.Write($"\n\nThere are {sk_chatcompletionagent_thread.ChatHistory.Count()} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive. > ");
         var clear_history = Console.ReadLine();
         if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
         {
@@ -126,7 +133,7 @@ do
                 message: new ChatMessageContent(AuthorRole.User, "Reset lights status"),
                 thread: sk_chatcompletionagent_thread))
             {
-                Console.Write($"{response.Content}");
+                // Console.Write($"{response.Content}");
             }
 
             sk_chatcompletionagent_thread.ChatHistory.Clear();

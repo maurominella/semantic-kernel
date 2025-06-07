@@ -96,7 +96,14 @@ do
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
 {
     // Collect user input
-    Console.Write("\n\nPls ask your question, e.g. 'Toggle chandelier light and tell me all lights status' > ");
+    Console.Write(@"
+Please ask me something, or type 'EXIT' to end the conversation.
+Examples of questions you can ask:
+- how many feets are there in a mile? (e.g. normal Chat Completion, to show how the history is stored),
+- toggle the chandelier and tell me the status of all lights (e.g. Plugin usage),
+- tell me a joke with no less than 200 words (e.g. normal Chat Completion, to show streaming features),
+
+Your turn > ");
     user_input = Console.ReadLine();
     time_to_exit = (string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase));
 
