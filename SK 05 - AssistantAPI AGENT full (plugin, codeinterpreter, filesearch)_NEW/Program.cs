@@ -43,17 +43,6 @@ using MyApp.Plugins;
 // contains the AISettings class
 namespace LLMSettings;
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.55.0" />
-/*
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
-
-using Azure.AI.OpenAI;
-using OpenAI.Assistants;
-using OpenAI.Files;
-using OpenAI.VectorStores;
-*/
-
 internal class Program
 {
     private static async Task Main(string[] args)
@@ -63,53 +52,50 @@ internal class Program
         // Load configuration from environment variables or user secrets.
         var aiSettings = new AISettings();
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {aiSettings.AzureOpenAI.Endpoint}\n" +
-        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {aiSettings.AzureOpenAI.ChatModelDeployment}" +
-        $"PROJECT_ENDPOINT: {aiSettings.AzureOpenAI.ProjectEndpoint}");
+        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {aiSettings.AzureOpenAI.ChatModelDeployment}\n" +
+        $"PROJECT_ENDPOINT: {aiSettings.AzureOpenAI.ProjectEndpoint}\n");
         #endregion
-
-        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {Env.GetString("AZURE_OPENAI_ENDPOINT")}\n" +
-            $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {Env.GetString("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")}");
 
         // Instantiation of the Client for Azure OpenAI 
         AzureOpenAIClient azure_openai_client = OpenAIAssistantAgent.CreateAzureOpenAIClient(
             credential: new AzureCliCredential(), endpoint: new Uri(aiSettings.AzureOpenAI.Endpoint));
 
         // Get the File Client
-        OpenAIFileClient fileClient = azure_openai_client.GetOpenAIFileClient();
+        OpenAIFileClient file_client = azure_openai_client.GetOpenAIFileClient();
 
         // Enumerate the existing files
-        IEnumerable<OpenAIFile> uploadedFiles = (await fileClient.GetFilesAsync()).Value;
-        Console.WriteLine($"There are {uploadedFiles.Count()} pre-existing files(s)");
+        IEnumerable<OpenAIFile> uploaded_files = (await file_client.GetFilesAsync()).Value;
+        Console.WriteLine($"There are {uploaded_files.Count()} pre-existing files(s)");
 
         // delete all files
-        foreach (var file in uploadedFiles)
+        foreach (var file in uploaded_files)
         {
             Console.WriteLine($"Deleting File <Id: {file.Id}, Name: {file.Filename}>...");
-            await fileClient.DeleteFileAsync(file.Id);
+            await file_client.DeleteFileAsync(file.Id);
         }
 
-        // Identify and Upload the files to search in
-        var s_files_references_to_search_in = new List<OpenAIFile>();
+        // Identify and Upload the files to search in, with the openai assistant search feature
+        var s_opeaifiles_to_search_in = new List<OpenAIFile>();
         string[] s_files_to_search_in =
         [
             "data/search_files/trailmaster_product_info_1.md",
         ];
         foreach (string f in s_files_to_search_in)
         {
-            OpenAIFile fileInfo = await fileClient.UploadFileAsync(f, FileUploadPurpose.Assistants);
-            s_files_references_to_search_in.Add(fileInfo);
+            OpenAIFile fileInfo = await file_client.UploadFileAsync(f, FileUploadPurpose.Assistants);
+            s_opeaifiles_to_search_in.Add(fileInfo);
             Console.WriteLine($"File <{f}> uploaded as <{fileInfo.Id}>");
         }
 
-        // Identify and Upload the files to work with
+        // Identify and Upload the files to work with with openai assistant code interpreter
         var s_id_files_to_work_with = new List<string>();
         string[] s_files_to_work_with =
         [
-            "data/codeinterpreter_files/turbines.csv",
+            "data/codeinterpreter_files/turbines.xlsx",
         ];
         foreach (string f in s_files_to_work_with)
         {
-            OpenAIFile fileInfo = await fileClient.UploadFileAsync(f, FileUploadPurpose.Assistants);
+            OpenAIFile fileInfo = await file_client.UploadFileAsync(f, FileUploadPurpose.Assistants);
             s_id_files_to_work_with.Add(fileInfo.Id);
             Console.WriteLine($"File <{f}> uploaded as <{fileInfo.Id}>");
         }
@@ -128,11 +114,11 @@ internal class Program
             await storeClient.DeleteVectorStoreAsync(vectorStoreId: v.Id);
         }
 
-        // Create a Vector Store and add the files to it
+        // Create a Vector Store and add the files to it (only the ones to search in)
         string storeId = (await storeClient.CreateVectorStoreAsync(waitUntilCompleted: true)).VectorStoreId;
         Console.WriteLine($"New Vector Store created with Id = <{storeId}>");
 
-        foreach (OpenAIFile file in s_files_references_to_search_in) // if you want **ALL** files: (await fileClient.GetFilesAsync()).Value)
+        foreach (OpenAIFile file in s_opeaifiles_to_search_in) // if you want **ALL** files: (await fileClient.GetFilesAsync()).Value)
         {
             Console.WriteLine($"Adding new file <Id: {file.Id}, Name: {file.Filename}> to the <{storeId}> vector store...");
             await storeClient.AddFileToVectorStoreAsync(storeId, file.Id, waitUntilCompleted: true);
@@ -152,24 +138,26 @@ internal class Program
             await assistant_client.DeleteAssistantAsync(a.Id);
         }
 
-
         // Create an ASSISTANT (or ASSISTANT DEFINITION)        
         Assistant assistant = await assistant_client.CreateAssistantAsync(
-            modelId: aiSettings.AzureOpenAI.ChatModelDeployment,
+            modelId: aiSettings.AzureOpenAI.ChatModelDeployment, // deployment name
             name: "mauromi's assistant",
             description: "My first assistant",
             instructions: "You are a clever assistant",
             enableCodeInterpreter: true,
             codeInterpreterFileIds: s_id_files_to_work_with,
             enableFileSearch: true,
-            vectorStoreId: storeId);
+            vectorStoreId: storeId); // includes s_opeaifiles_to_search_in
         Console.WriteLine($"Created new Assistant <{assistant.Name}> with Id <{assistant.Id}>");
 
         // Create an assistant AGENT
         var assistant_agent = new OpenAIAssistantAgent(definition: assistant, client: assistant_client);
 
-        // Here we just define the AgentThread variable, without creating it
-        // AgentThread will be started and returned as part of the response
+        // Add a plugin to the assistant agent
+        assistant_agent.Kernel.Plugins.AddFromType<LightsPlugin>("Lights");
+
+        // Here we just define (without creating) the AgentThread variable
+        // An AgentThread will be started and returned as part of the response
         AgentThread? agent_thread = null;
 
         // Initiate a back-and-forth chat
@@ -178,7 +166,15 @@ internal class Program
 
         do
         {
-            Console.Write("\nUser, e.g. 'tell me a joke with no less than 200 words', 'what's the Season Rating for the TrailMaster X4 Tent?', 'what is the earliest Maintenance_Date among the turbine with highest voltage?' > ");
+            Console.Write($@"
+Please ask me something, or type 'EXIT' to end the conversation.
+Examples of questions you can ask:
+- tell me a joke with no less than 200 words (e.g. normal Chat Completion),
+- toggle the chandelier and tell me the status of all lights (e.g. Plugin usage),
+- what's the Season Rating for the TrailMaster X4 Tent? (e.g. Assistant API's File Search),
+- use turbines.xlsx to find the earliest Maintenance_Date among the turbine with highest voltage (e.g. Assistant API's Code Interpreter),
+
+Your turn > ");
 
             // Collect user input
             user_input = Console.ReadLine();
@@ -198,7 +194,7 @@ internal class Program
                 agent_thread = response.Thread;
             }
 
-            Console.Write($"\n\nEnter 'Y' inf you want to clear the status, or anything else to keep the thread and its messages alive > ");
+            Console.Write($"\n\nEnter 'Y' if you want to clear the history, or anything else to keep the thread and its messages alive > ");
             var clear_history = Console.ReadLine();
             // Delete the thread if no longer needed
             if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')

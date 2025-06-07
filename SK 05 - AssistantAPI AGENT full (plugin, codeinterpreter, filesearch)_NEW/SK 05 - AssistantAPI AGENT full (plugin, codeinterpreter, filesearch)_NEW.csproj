@@ -5,13 +5,14 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);CS8602;CS8603;CS8618;CA1852</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="data/search_files/trailmaster_product_info_1.md">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="data/codeinterpreter_files/turbines.csv">
+    <None Include="data/codeinterpreter_files/turbines.xlsx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
 
