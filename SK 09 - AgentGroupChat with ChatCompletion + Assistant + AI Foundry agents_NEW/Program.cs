@@ -2,7 +2,7 @@
 
 // Last update: June 6th, 2025
 
-// Created with: dotnet new console -n "SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group)_NEW" --framework net9.0
+// Created with: dotnet new console -n "SK 09 - AgentGroupChat with ChatCompletion + Assistant + AI Foundry agents_NEW" --framework net9.0
 
 /*
 Supporting documentation:
@@ -41,7 +41,11 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
 // dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.55.0-preview" />
-using Microsoft.SemanticKernel.Agents.AzureAI;
+using Microsoft.SemanticKernel.Agents.OpenAI;
+using OpenAI.Assistants;
+using Azure.AI.OpenAI;
+using OpenAI.Files;
+using OpenAI.VectorStores;
 
 // JUST FOR ASSISTANT API'S
 // dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --><PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.55.0-preview" />
@@ -52,11 +56,7 @@ using Azure.Identity;
 using Microsoft.SemanticKernel.ChatCompletion;
 
 using AIPlugins;
-using Microsoft.SemanticKernel.Agents.OpenAI;
-using OpenAI.Assistants;
-using Azure.AI.OpenAI;
-using OpenAI.Files;
-using OpenAI.VectorStores; // contains the LightsPlugin class
+using Azure.AI.Projects; // contains the LightsPlugin class
 
 namespace LLMSettings;
 
@@ -76,6 +76,96 @@ internal class Program
         $"PROJECT_ENDPOINT: {ai_settings.AzureOpenAI.ProjectEndpoint}");
         #endregion
 
+        #region CreatureQuestioner (SK ChatCompletion Agent)
+        Console.WriteLine("\n\n\n+++++++++++++++++ CreatureQuestioner (SK ChatCompletion Agent) +++++++++++++++++\n");
+
+        // library Microsoft.SemanticKernel.Agents for ChatCompletionAgent
+        ChatCompletionAgent? creaturequestioner_agent = await GenericCreateAgentAsync(
+            ai_settings: ai_settings,
+            agent_type: "sk_chatcompletion_agent",
+            agent_name: "CreatureQuestioner"
+            ) as ChatCompletionAgent;
+
+        // chat with the agent
+        var creaturequestioner_response = await GenericChatWithAgentAsync(
+            agent: creaturequestioner_agent,
+            predefined_question: "doesn't matter");
+        #endregion
+
+        #region AnimalPicker (SK AI Foundry Agent with Bing Grounding Tool)
+        Console.WriteLine("\n\n\n+++++++++++++++++ AnimalPicker (AI Foundry Agent with Bing Grounding Tool) +++++++++++++++++\n");
+        // Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
+        // s_aiagent_id = Console.ReadLine();
+
+        var aiproject_client = new AIProjectClient(new Uri(ai_settings.GetVariable("PROJECT_ENDPOINT")), new AzureCliCredential());
+        // we could create the project agent without the project client, but we need it for the deletion
+        PersistentAgentsClient aiagents_client = aiproject_client.GetPersistentAgentsClient();
+
+        // Microsoft.SemanticKernel.Agents.AzureAI    
+        PersistentAgent? animalpicker_agent = await GenericCreateAgentAsync(
+            agent_type: "sk_azure_aifoundry_agent",
+            agent_name: "AnimalPicker",
+            aiagents_client: aiagents_client,
+            ai_settings: ai_settings
+            ) as PersistentAgent;
+
+        // chat with the agent
+        var animalpicker_response = await GenericChatWithAgentAsync(
+            agent: animalpicker_agent,
+            aiagents_client: aiagents_client,
+            predefined_question: creaturequestioner_response);
+        #endregion
+
+        #region AnimalJoker (SK ChatCompletion Agent)
+        Console.WriteLine("\n\n\n+++++++++++++++++ AnimalJoker (SK ChatCompletion Agent) +++++++++++++++++\n");
+
+        // library Microsoft.SemanticKernel.Agents for ChatCompletionAgent
+        ChatCompletionAgent? animaljoker_agent = await GenericCreateAgentAsync(
+            ai_settings: ai_settings,
+            agent_type: "sk_chatcompletion_agent",
+            agent_name: "AnimalJoker"
+            ) as ChatCompletionAgent;
+
+        // chat with the agent
+        var animaljoker_response = await GenericChatWithAgentAsync(agent: animaljoker_agent, predefined_question: animalpicker_response);
+        #endregion
+
+        #region Statistician (SK Assistant Agent with CodeInterpreter)
+        Console.WriteLine("\n\n\n+++++++++++++++++ Statistician (SDK Assistant Agent with CodeInterpreter) +++++++++++++++++\n");
+
+        // In this case, I do NOT use CodeInterpreter or FileClient tools. If you need them, please consider example #8
+
+        // library Microsoft.SemanticKernel.Agents.OpenAI for OpenAIAssistantAgent
+        OpenAIAssistantAgent? statistician_agent = await GenericCreateAgentAsync(
+            ai_settings: ai_settings,
+            agent_type: "sk_assistantapi_agent",
+            agent_name: "Statistician"
+            ) as OpenAIAssistantAgent;
+
+        // chat with the agent
+        var statistician_response = await GenericChatWithAgentAsync(
+            agent: statistician_agent,
+            predefined_question: animaljoker_response);
+        #endregion
+
+        #region Reviewer (SK ChatCompletion Agent)
+        Console.WriteLine("\n\n\n+++++++++++++++++ Reviewer (SK ChatCompletion Agent) +++++++++++++++++\n");
+
+        // library Microsoft.SemanticKernel.Agents for ChatCompletionAgent
+        ChatCompletionAgent? reviewer_agent = await GenericCreateAgentAsync(
+            ai_settings: ai_settings,
+            agent_type: "sk_chatcompletion_agent",
+            agent_name: "Reviewer"
+            ) as ChatCompletionAgent;
+
+        // chat with the agent
+        var reviewer_response = await GenericChatWithAgentAsync(
+            agent: reviewer_agent,
+            predefined_question: statistician_response);
+        #endregion
+
+
+
         #region Semantic Kernel ChatCompletion Agent
 
         Console.Write("\n\n+++++++++ CHAT COMPLETION AGENT +++++++++\n");
@@ -90,7 +180,7 @@ internal class Program
         // chat with the agent
         try
         {
-            await ChatWithAgentAsync(agent: sk_chatcompletion_agent);
+            await GenericChatWithAgentAsync(agent: sk_chatcompletion_agent);
         }
         finally
         {
@@ -129,7 +219,7 @@ internal class Program
         // chat with the agent
         try
         {
-            await ChatWithAgentAsync(agent: sk_assistant_agent);
+            await GenericChatWithAgentAsync(agent: sk_assistant_agent);
         }
         finally
         {
@@ -145,27 +235,29 @@ internal class Program
         Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
         s_aiagent_id = Console.ReadLine();
 
-        PersistentAgentsClient aiproject_client = AzureAIAgent.CreateAgentsClient(ai_settings.GetVariable("PROJECT_ENDPOINT"), new AzureCliCredential());
+        // var aiproject_client = new AIProjectClient(new Uri(ai_settings.GetVariable("PROJECT_ENDPOINT")), new AzureCliCredential());
+        // we could create the project agent without the project client, but we need it for the deletion
+        // PersistentAgentsClient aiagents_client = aiproject_client.GetPersistentAgentsClient();
 
         // Microsoft.SemanticKernel.Agents.AzureAI    
         PersistentAgent? sk_ai_agent = await GenericCreateAgentAsync(
             agent_type: "sk_azure_aifoundry_agent",
             agent_name: "AnimalPicker",
             aiagent_id: s_aiagent_id,
-            aiproject_client: aiproject_client,
+            aiagents_client: aiagents_client,
             ai_settings: ai_settings
             ) as PersistentAgent;
 
         try
         {
-            await ChatWithAgentAsync(
+            await GenericChatWithAgentAsync(
                 sk_ai_agent,
-                aiproject_client: aiproject_client);
+                aiagents_client: aiagents_client);
         }
         finally
         {
             Console.WriteLine($"\nDeleting agent {sk_ai_agent.Name}({sk_ai_agent.Id})...");
-            await aiproject_client.Administration.DeleteAgentAsync(agentId: sk_ai_agent.Id);
+            await aiagents_client.Administration.DeleteAgentAsync(agentId: sk_ai_agent.Id);
         }
         #endregion
     }
@@ -173,7 +265,7 @@ internal class Program
 
     // Single Chat function for all kinds of agents
     private static async Task<object> GenericCreateAgentAsync(
-        string agent_type, string? agent_name = null, PersistentAgentsClient? aiproject_client = null, string? aiproject_endpoint = null,
+        string agent_type, string? agent_name = null, PersistentAgentsClient? aiagents_client = null,
         string[]? s_files_to_search_in = null, string[]? s_files_to_work_with = null,
         AISettings? ai_settings = null, string? instructions = null, string? aiagent_id = null)
     {
@@ -236,6 +328,8 @@ internal class Program
             // Get the File Client
             OpenAIFileClient file_client = azure_openai_client.GetOpenAIFileClient();
 
+            /*
+
             // Upload the files to search in, with the openai assistant search feature
             var s_openaifiles_to_search_in = new List<OpenAIFile>();
             foreach (string f in s_files_to_search_in)
@@ -266,19 +360,21 @@ internal class Program
                 await storeClient.AddFileToVectorStoreAsync(storeId, file.Id, waitUntilCompleted: true);
             }
 
+            */
+
             // Get the ASSISTANT API CLIENT
             AssistantClient assistant_client = azure_openai_client.GetAssistantClient();
 
             // Create an ASSISTANT (or ASSISTANT DEFINITION)
             Assistant assistant = await assistant_client.CreateAssistantAsync(
                 modelId: ai_settings.AzureOpenAI.ChatModelDeployment, // deployment name
-                name: "mauromi's assistant",
-                description: "My first assistant",
-                instructions: "You are a clever assistant",
-                enableCodeInterpreter: true,
-                codeInterpreterFileIds: s_id_files_to_work_with,
-                enableFileSearch: true,
-                vectorStoreId: storeId); // includes s_opeaifiles_to_search_in
+                name: agent_name,
+                instructions: instructions,
+                enableCodeInterpreter: true
+                //codeInterpreterFileIds: s_id_files_to_work_with,
+                //enableFileSearch: true,
+                //vectorStoreId: storeId
+                ); // includes s_opeaifiles_to_search_in
             Console.WriteLine($"Created new Assistant <{assistant.Name}> with Id <{assistant.Id}>");
 
             // Create an assistant AGENT
@@ -293,7 +389,6 @@ internal class Program
 
         else if (agent_type == "sk_azure_aifoundry_agent")
         {
-
             BingGroundingToolDefinition bingGroundingTool = new(
                 bingGrounding: new BingGroundingSearchToolParameters(
                     [new BingGroundingSearchConfiguration(connectionId: ai_settings.GetVariable("BING_CONNECTION_ID"))]
@@ -303,7 +398,7 @@ internal class Program
             PersistentAgent sk_ai_agent;
             if (string.IsNullOrWhiteSpace(aiagent_id))
             {
-                sk_ai_agent = await aiproject_client.Administration.CreateAgentAsync(
+                sk_ai_agent = await aiagents_client.Administration.CreateAgentAsync(
                     model: ai_settings.AzureOpenAI.ChatModelDeployment,
                     name: agent_name,
                     description: agent_name,
@@ -314,9 +409,7 @@ internal class Program
             }
             else
             {
-                // sk_ai_agent = await agentsClient.Administration.GetAgentAsync(agentId: aiagent_id, context: null);
-                var sk_ai_agent_response = await aiproject_client.Administration.GetAgentAsync(agentId: aiagent_id, context: null);
-                sk_ai_agent = null;
+                sk_ai_agent = await aiagents_client.Administration.GetAgentAsync(aiagent_id);
             }
 
             agent = sk_ai_agent;
@@ -327,11 +420,12 @@ internal class Program
 
 
     // Single Chat function for all kinds of agents
-    private static async Task ChatWithAgentAsync(object agent, PersistentAgentsClient? aiproject_client = null)
+    private static async Task<string> GenericChatWithAgentAsync(object agent, PersistentAgentsClient? aiagents_client = null, string? predefined_question = null)
     {
         // Initiate a back-and-forth chat
         bool exit_chat = false;
         string? user_input;
+        string? agent_response = "";
 
         if (agent is ChatCompletionAgent sk_chatcompletion_agent)
         {
@@ -342,7 +436,9 @@ internal class Program
 
             do
             {
-                Console.Write(@"
+                if (string.IsNullOrWhiteSpace(predefined_question))
+                {
+                    Console.Write(@"
 Please ask me something, or type 'EXIT' to end the conversation.
 Examples of questions you can ask:
 - how many feets are there in a mile? (e.g. normal Chat Completion, to show how the history is stored),
@@ -350,8 +446,14 @@ Examples of questions you can ask:
 - tell me a joke with no less than 200 words (e.g. normal Chat Completion, to show streaming features),
 
 Your turn > ");
-                // Collect user input
-                user_input = Console.ReadLine();
+                    // Collect user input
+                    user_input = Console.ReadLine();
+                }
+                else
+                {
+                    user_input = predefined_question;
+                }
+
                 if (string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
                 {
                     exit_chat = true;
@@ -366,20 +468,28 @@ Your turn > ");
                     message: message, thread: sk_chatcompletionagent_thread))
                 {
                     Console.Write($"{response.Content}");
+                    agent_response += response.Content;
                 }
 
-                Console.Write($"\n\nThere are {sk_chatcompletionagent_thread.ChatHistory.Count()} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive. > ");
-                var clear_history = Console.ReadLine();
-                if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
+                if (string.IsNullOrWhiteSpace(predefined_question))
                 {
-                    await foreach (StreamingChatMessageContent response in sk_chatcompletion_agent.InvokeStreamingAsync(
-                        message: new ChatMessageContent(AuthorRole.User, "Reset lights status"),
-                        thread: sk_chatcompletionagent_thread))
+                    Console.Write($"\n\nThere are {sk_chatcompletionagent_thread.ChatHistory.Count()} messages in the history. Enter 'Y' if you want to clear the status, or anything else to keep thread and plugins alive. > ");
+                    var clear_history = Console.ReadLine();
+                    if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
                     {
-                        //Console.Write($"{response.Content}");
-                    }
+                        await foreach (StreamingChatMessageContent response in sk_chatcompletion_agent.InvokeStreamingAsync(
+                            message: new ChatMessageContent(AuthorRole.User, "Reset lights status"),
+                            thread: sk_chatcompletionagent_thread))
+                        {
+                            //Console.Write($"{response.Content}");
+                        }
 
-                    sk_chatcompletionagent_thread.ChatHistory.Clear();
+                        sk_chatcompletionagent_thread.ChatHistory.Clear();
+                    }
+                }
+                else
+                {
+                    exit_chat = true;
                 }
 
             } while (!exit_chat);
@@ -388,16 +498,17 @@ Your turn > ");
 
         else if (agent is OpenAIAssistantAgent sk_assistantapi_agent)
         {
-            Console.Write("\nWelcome to the OpenAIAssistantAgent! Ask me anything, or type 'EXIT' to quit.\n");
+            Console.Write("\nWelcome to the OpenAI Assistant agent! Ask me anything, or type 'EXIT' to quit.\n");
 
             // Here we just define (without creating) the AgentThread variable
             // An AgentThread will be started and returned as part of the response
             AgentThread? agent_thread = null;
 
-            Console.Write("\nWelcome to the OpenAI Assistant agent! Ask me anything, or type 'EXIT' to quit.\n");
             do
             {
-                Console.Write(@"
+                if (string.IsNullOrWhiteSpace(predefined_question))
+                {
+                    Console.Write(@"
 Please ask me something, or type 'EXIT' to end the conversation.
 Examples of questions you can ask:
 - tell me a joke with no less than 200 words (e.g. normal Chat Completion),
@@ -407,8 +518,14 @@ Examples of questions you can ask:
 
 Your turn > ");
 
-                // Collect user input
-                user_input = Console.ReadLine();
+                    // Collect user input
+                    user_input = Console.ReadLine();
+                }
+                else
+                {
+                    user_input = predefined_question;
+                }
+
                 if (string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
                 {
                     exit_chat = true;
@@ -422,28 +539,39 @@ Your turn > ");
                 {
                     // Process agent response(s)...
                     Console.Write($"{response.Message.Content}");
+                    agent_response += response.Message.Content;
                     agent_thread = response.Thread;
                 }
 
-                Console.Write($"\n\nEnter 'Y' if you want to clear the history, or anything else to keep the thread and its messages alive > ");
-                var clear_history = Console.ReadLine();
-                // Delete the thread if no longer needed
-                if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
+                if (string.IsNullOrWhiteSpace(predefined_question))
                 {
-                    // await agent_thread.DeleteAsync();
-                    agent_thread = null;
+
+                    Console.Write($"\n\nEnter 'Y' if you want to clear the history, or anything else to keep the thread and its messages alive > ");
+                    var clear_history = Console.ReadLine();
+                    // Delete the thread if no longer needed
+                    if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
+                    {
+                        // await agent_thread.DeleteAsync();
+                        agent_thread = null;
+                    }
+                }
+                else
+                {
+                    exit_chat = true;
                 }
 
             } while (!exit_chat);
         }
 
 
-        else if (agent is PersistentAgent sk_ai_agent)
+        else if (agent is PersistentAgent sk_aifoundry_agent)
         {
             Console.Write("\nWelcome to the AI Foundry Agent (PersistentAgent object)! Ask me anything, or type 'EXIT' to quit.\n");
             do
             {
-                Console.Write(@"
+                if (string.IsNullOrWhiteSpace(predefined_question))
+                {
+                    Console.Write(@"
 Please ask me something, or type 'EXIT' to end the conversation.
 Examples of questions you can ask:
 - what is the biggest insect? (e.g. grounding with Bing Search),
@@ -453,8 +581,14 @@ Examples of questions you can ask:
 
 Your turn > ");
 
-                // Collect user input
-                user_input = Console.ReadLine();
+                    // Collect user input
+                    user_input = Console.ReadLine();
+                }
+                else
+                {
+                    user_input = predefined_question;
+                }
+
                 if (string.IsNullOrWhiteSpace(user_input) || user_input.Trim().Equals("EXIT", StringComparison.OrdinalIgnoreCase))
                 {
                     exit_chat = true;
@@ -462,21 +596,21 @@ Your turn > ");
                 }
 
                 Console.WriteLine("Chatting with the AI Foundry agent...");
-                PersistentAgentThread thread = await aiproject_client.Threads.CreateThreadAsync();
-                PersistentThreadMessage message = await aiproject_client.Messages.CreateMessageAsync(
+                PersistentAgentThread thread = await aiagents_client.Threads.CreateThreadAsync();
+                PersistentThreadMessage message = await aiagents_client.Messages.CreateMessageAsync(
                     thread.Id,
                     Azure.AI.Agents.Persistent.MessageRole.User, user_input);
 
-                Azure.AI.Agents.Persistent.ThreadRun run = await aiproject_client.Runs.CreateRunAsync(
+                Azure.AI.Agents.Persistent.ThreadRun run = await aiagents_client.Runs.CreateRunAsync(
                     thread.Id,
-                    sk_ai_agent.Id,
-                    additionalInstructions: "Please address the user as Jane Doe. The user has a premium account.");
+                    sk_aifoundry_agent.Id,
+                    additionalInstructions: "");
 
                 // Once the run has started, it should then be polled until it reaches a terminal status:
                 do
                 {
                     await Task.Delay(TimeSpan.FromMilliseconds(500));
-                    run = await aiproject_client.Runs.GetRunAsync(thread.Id, run.Id);
+                    run = await aiagents_client.Runs.GetRunAsync(thread.Id, run.Id);
                 }
                 while (run.Status == Azure.AI.Agents.Persistent.RunStatus.Queued
                     || run.Status == Azure.AI.Agents.Persistent.RunStatus.InProgress);
@@ -485,7 +619,7 @@ Your turn > ");
 
 
                 AsyncPageable<PersistentThreadMessage> messages =
-                    aiproject_client.Messages.GetMessagesAsync(
+                    aiagents_client.Messages.GetMessagesAsync(
                         threadId: thread.Id, order: ListSortOrder.Ascending);
 
                 await foreach (PersistentThreadMessage threadMessage in messages)
@@ -496,6 +630,7 @@ Your turn > ");
                         if (contentItem is MessageTextContent textItem)
                         {
                             Console.Write(textItem.Text);
+                            agent_response += textItem.Text;
                         }
                         else if (contentItem is MessageImageFileContent imageFileItem)
                         {
@@ -504,9 +639,26 @@ Your turn > ");
                         Console.WriteLine();
                     }
                 }
+
+                if (string.IsNullOrWhiteSpace(predefined_question))
+                {
+                    Console.Write($"\n\nEnter 'Y' if you want to clear the history, or anything else to keep the thread and its messages alive > ");
+                    var clear_history = Console.ReadLine();
+                    if (!string.IsNullOrWhiteSpace(clear_history) && clear_history.ToUpper().Trim()[0] == 'Y')
+                    {
+                        await aiagents_client.Threads.DeleteThreadAsync(thread.Id);
+                    }
+                }
+                else
+                {
+                    exit_chat = true;
+                }
+
             } while (!exit_chat);
 
         }
+
+        return agent_response;
     }
 
 

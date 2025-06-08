@@ -10,16 +10,28 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="agents/AnimalPicker.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="data/search_files/trailmaster_product_info_1.md">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="data/codeinterpreter_files/turbines.xlsx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-
+    <None Include="agents/AnimalPicker.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="agents/AnimalJoker.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="agents/CreatureQuestioner.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="agents/Reviewer.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="agents/Statistician.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    
     <PackageReference Include="Azure.AI.Agents.Persistent" Version="1.0.0" />
     <PackageReference Include="Azure.Identity" Version="1.14.0" />
     <PackageReference Include="DotNetEnv" Version="3.1.1" />

@@ -56,7 +56,8 @@ using Microsoft.SemanticKernel.Agents.OpenAI;
 using OpenAI.Assistants;
 using Azure.AI.OpenAI;
 using OpenAI.Files;
-using OpenAI.VectorStores; // contains the LightsPlugin class
+using OpenAI.VectorStores;
+using Azure.AI.Projects; // contains the LightsPlugin class
 
 namespace LLMSettings;
 
@@ -145,14 +146,16 @@ internal class Program
         Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
         s_aiagent_id = Console.ReadLine();
 
-        PersistentAgentsClient aiproject_client = AzureAIAgent.CreateAgentsClient(ai_settings.GetVariable("PROJECT_ENDPOINT"), new AzureCliCredential());
+        var aiproject_client = new AIProjectClient(new Uri(ai_settings.GetVariable("PROJECT_ENDPOINT")), new AzureCliCredential());
+        // we could create the project agent without the project client, but we need it for the deletion
+        PersistentAgentsClient aiagents_client = aiproject_client.GetPersistentAgentsClient();
 
         // Microsoft.SemanticKernel.Agents.AzureAI    
         PersistentAgent? sk_ai_agent = await GenericCreateAgentAsync(
             agent_type: "sk_azure_aifoundry_agent",
             agent_name: "AnimalPicker",
             aiagent_id: s_aiagent_id,
-            aiproject_client: aiproject_client,
+            aiagents_client: aiagents_client,
             ai_settings: ai_settings
             ) as PersistentAgent;
 
@@ -160,12 +163,12 @@ internal class Program
         {
             await ChatWithAgentAsync(
                 sk_ai_agent,
-                aiproject_client: aiproject_client);
+                aiproject_client: aiagents_client);
         }
         finally
         {
             Console.WriteLine($"\nDeleting agent {sk_ai_agent.Name}({sk_ai_agent.Id})...");
-            await aiproject_client.Administration.DeleteAgentAsync(agentId: sk_ai_agent.Id);
+            await aiagents_client.Administration.DeleteAgentAsync(agentId: sk_ai_agent.Id);
         }
         #endregion
     }
@@ -173,7 +176,7 @@ internal class Program
 
     // Single Chat function for all kinds of agents
     private static async Task<object> GenericCreateAgentAsync(
-        string agent_type, string? agent_name = null, PersistentAgentsClient? aiproject_client = null, string? aiproject_endpoint = null,
+        string agent_type, string? agent_name = null, PersistentAgentsClient? aiagents_client = null, string? aiproject_endpoint = null,
         string[]? s_files_to_search_in = null, string[]? s_files_to_work_with = null,
         AISettings? ai_settings = null, string? instructions = null, string? aiagent_id = null)
     {
@@ -303,7 +306,7 @@ internal class Program
             PersistentAgent sk_ai_agent;
             if (string.IsNullOrWhiteSpace(aiagent_id))
             {
-                sk_ai_agent = await aiproject_client.Administration.CreateAgentAsync(
+                sk_ai_agent = await aiagents_client.Administration.CreateAgentAsync(
                     model: ai_settings.AzureOpenAI.ChatModelDeployment,
                     name: agent_name,
                     description: agent_name,
@@ -314,9 +317,7 @@ internal class Program
             }
             else
             {
-                // sk_ai_agent = await agentsClient.Administration.GetAgentAsync(agentId: aiagent_id, context: null);
-                var sk_ai_agent_response = await aiproject_client.Administration.GetAgentAsync(agentId: aiagent_id, context: null);
-                sk_ai_agent = null;
+                sk_ai_agent = await aiagents_client.Administration.GetAgentAsync(aiagent_id);
             }
 
             agent = sk_ai_agent;

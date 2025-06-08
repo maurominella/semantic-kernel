@@ -22,17 +22,17 @@ Features included:
 
 // dotnet add package Azure.AI.Agents.Persistent --> <PackageReference Include="Azure.AI.Agents.Persistent" Version="1.0.0" />
 using Azure.AI.Agents.Persistent;
+using Azure;
 
 // dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.55.0" />
 // using Microsoft.SemanticKernel;
 
 // dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.55.0-preview" />
-using Microsoft.SemanticKernel.Agents.AzureAI;
+using Azure.AI.Projects;
 
 
 // dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.14.0" />
 using Azure.Identity;
-using Azure;
 
 namespace LLMSettings;
 
@@ -45,10 +45,10 @@ internal class Program
         #region Environment Configuration
         Console.WriteLine("Application starts");
         // Load configuration from environment variables or user secrets.
-        var aiSettings = new AISettings();
-        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {aiSettings.AzureOpenAI.Endpoint}\n" +
-        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {aiSettings.AzureOpenAI.ChatModelDeployment}" +
-        $"PROJECT_ENDPOINT: {aiSettings.AzureOpenAI.ProjectEndpoint}");
+        var ai_settings = new AISettings();
+        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {ai_settings.AzureOpenAI.Endpoint}\n" +
+        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {ai_settings.AzureOpenAI.ChatModelDeployment}" +
+        $"PROJECT_ENDPOINT: {ai_settings.AzureOpenAI.ProjectEndpoint}");
         #endregion
 
 
@@ -56,7 +56,9 @@ internal class Program
         Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
         s_aiagent_id = Console.ReadLine();
 
-        PersistentAgentsClient aiproject_client = AzureAIAgent.CreateAgentsClient(aiSettings.GetVariable("PROJECT_ENDPOINT"), new AzureCliCredential());
+        var aiproject_client = new AIProjectClient(new Uri(ai_settings.GetVariable("PROJECT_ENDPOINT")), new AzureCliCredential());
+        // we could create the project agent without the project client, but we need it for the deletion
+        PersistentAgentsClient aiagents_client = aiproject_client.GetPersistentAgentsClient();
 
         // Microsoft.SemanticKernel.Agents.AzureAI    
         PersistentAgent? sk_ai_agent = await GenericCreateAgentAsync(
@@ -64,21 +66,21 @@ internal class Program
             agent_name: "AnimalPicker",
             aiagent_id: s_aiagent_id,
             // aiproject_endpoint: aiSettings.GetVariable("PROJECT_ENDPOINT"),
-            aiproject_client: aiproject_client,
-            deployment_name: aiSettings.GetVariable("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
-            bing_connection_id: aiSettings.GetVariable("BING_CONNECTION_ID")
+            aiagents_client: aiagents_client,
+            deployment_name: ai_settings.GetVariable("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
+            bing_connection_id: ai_settings.GetVariable("BING_CONNECTION_ID")
             ) as PersistentAgent;
 
         try
         {
             await ChatWithAgentAsync(
                 sk_ai_agent,
-                aiproject_client: aiproject_client);
+                aiagents_client: aiagents_client);
         }
         finally
         {
             Console.WriteLine($"\nDeleting agent {sk_ai_agent.Name}({sk_ai_agent.Id})...");
-            await aiproject_client.Administration.DeleteAgentAsync(agentId: sk_ai_agent.Id);
+            await aiagents_client.Administration.DeleteAgentAsync(agentId: sk_ai_agent.Id);
         }
         #endregion
     }
@@ -86,7 +88,7 @@ internal class Program
 
     // Single Chat function for all kinds of agents
     private static async Task<object> GenericCreateAgentAsync(
-        string agent_type, string? agent_name = null, PersistentAgentsClient? aiproject_client = null, string? aiproject_endpoint = null, string? deployment_name = null,
+        string agent_type, string? agent_name = null, PersistentAgentsClient? aiproject_client = null, PersistentAgentsClient? aiagents_client = null, string? deployment_name = null,
         string? bing_connection_id = null, string? aiagent_id = null)
     {
         // There are two options to create the Azure AI Foundry Agent
@@ -119,9 +121,7 @@ internal class Program
             }
             else
             {
-                // sk_ai_agent = await agentsClient.Administration.GetAgentAsync(agentId: aiagent_id, context: null);
-                var sk_ai_agent_response = await aiproject_client.Administration.GetAgentAsync(agentId: aiagent_id, context: null);
-                sk_ai_agent = null;
+                sk_ai_agent = await aiagents_client.Administration.GetAgentAsync(aiagent_id);
             }
 
             agent = sk_ai_agent;
@@ -132,7 +132,7 @@ internal class Program
 
 
     // Single Chat function for all kinds of agents
-    private static async Task ChatWithAgentAsync(object agent, PersistentAgentsClient? aiproject_client = null)
+    private static async Task ChatWithAgentAsync(object agent, PersistentAgentsClient? aiagents_client = null)
     {
         // Initiate a back-and-forth chat
         bool exit_chat = false;
@@ -161,12 +161,12 @@ Your turn > ");
             // Azure.AI.Agents.Persistent.PersistentAgent
             if (agent is PersistentAgent sk_ai_agent)
             {
-                PersistentAgentThread thread = await aiproject_client.Threads.CreateThreadAsync();
-                PersistentThreadMessage message = await aiproject_client.Messages.CreateMessageAsync(
+                PersistentAgentThread thread = await aiagents_client.Threads.CreateThreadAsync();
+                PersistentThreadMessage message = await aiagents_client.Messages.CreateMessageAsync(
                     thread.Id,
                     MessageRole.User, user_input);
 
-                ThreadRun run = await aiproject_client.Runs.CreateRunAsync(
+                ThreadRun run = await aiagents_client.Runs.CreateRunAsync(
                     thread.Id,
                     sk_ai_agent.Id,
                     additionalInstructions: "Please address the user as Jane Doe. The user has a premium account.");
@@ -175,7 +175,7 @@ Your turn > ");
                 do
                 {
                     await Task.Delay(TimeSpan.FromMilliseconds(500));
-                    run = await aiproject_client.Runs.GetRunAsync(thread.Id, run.Id);
+                    run = await aiagents_client.Runs.GetRunAsync(thread.Id, run.Id);
                 }
                 while (run.Status == RunStatus.Queued
                     || run.Status == RunStatus.InProgress);
@@ -189,7 +189,7 @@ Your turn > ");
 
 
                 AsyncPageable<PersistentThreadMessage> messages =
-                    aiproject_client.Messages.GetMessagesAsync(
+                    aiagents_client.Messages.GetMessagesAsync(
                         threadId: thread.Id, order: ListSortOrder.Ascending);
 
                 await foreach (PersistentThreadMessage threadMessage in messages)
