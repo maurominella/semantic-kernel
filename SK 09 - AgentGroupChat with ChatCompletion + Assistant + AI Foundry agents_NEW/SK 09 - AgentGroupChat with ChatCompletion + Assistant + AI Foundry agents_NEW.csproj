@@ -46,6 +46,7 @@
     <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.55.0-preview" />
     <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.55.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.55.0-preview" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.Orchestration" Version="1.55.0-preview" />
   </ItemGroup>
 
 </Project>
