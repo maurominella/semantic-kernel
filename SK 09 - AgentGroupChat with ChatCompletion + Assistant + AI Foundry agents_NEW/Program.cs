@@ -2,7 +2,7 @@
 
 // Last update: June 6th, 2025
 
-// Created with: dotnet new console -n "SK 09 - AgentGroupChat with ChatCompletion + Assistant + AI Foundry agents_NEW" --framework net9.0
+// Created with: dotnet new console -n "SK 09 - AgentGroupChat with ChatCompletion + Assistant + AI Foundry agents_NEW" --framework net8.0
 
 /*
 Supporting documentation:
@@ -39,8 +39,8 @@ using Microsoft.Extensions.DependencyInjection; // needed for AddLogging
 using Azure.AI.Agents.Persistent; // needed for PersistentAgentsClient, PersistentAgent, PersistentAgentThread, PersistentThreadMessage, ThreadRun, RunStatus, MessageRole, MessageContent, MessageTextContent, MessageImageFileContent, BingGroundingToolDefinition, BingGroundingSearchToolParameters, BingGroundingSearchConfiguration
 
 // dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.55.0" />
-using Microsoft.SemanticKernel.Agents; // needed for ChatCompletion
 using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Agents; // needed for ChatCompletion
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
 // dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.55.0-preview" />
@@ -51,8 +51,13 @@ using OpenAI.Files;
 // using OpenAI.VectorStores;
 
 // dotnet add package Microsoft.SemanticKernel.Agents.Orchestration --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Orchestration" Version="1.55.0-preview" />
+using Microsoft.SemanticKernel.Agents.Orchestration;
 using Microsoft.SemanticKernel.Agents.Orchestration.Sequential; // needed for SequentialOrchestration
+using Microsoft.SemanticKernel.Agents.Orchestration.GroupChat;
 // using Microsoft.SemanticKernel.Agents.Orchestration.GroupChat;
+
+// dotnet add package Microsoft.SemanticKernel.Agents.Runtime.InProcess --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Runtime.InProcess" Version="1.55.0-preview" />
+using Microsoft.SemanticKernel.Agents.Runtime.InProcess; // needed for InProcessRuntime
 
 
 // JUST FOR ASSISTANT API'S
@@ -68,6 +73,7 @@ using Azure.AI.Projects;
 using Microsoft.SemanticKernel.Agents.AzureAI;
 
 namespace LLMSettings;
+
 
 #endregion
 
@@ -91,7 +97,8 @@ internal class Program
         ChatCompletionAgent? creaturequestioner_agent = await GenericCreateAgentAsync(
             ai_settings: ai_settings,
             agent_type: "sk_chatcompletion_agent",
-            agent_name: "CreatureQuestioner"
+            agent_name: "CreatureQuestioner",
+            agent_description: "Agent that generates questions about creatures"
             ) as ChatCompletionAgent;
 
         // chat with the agent
@@ -113,6 +120,7 @@ internal class Program
         AzureAIAgent? animalpicker_agent = await GenericCreateAgentAsync(
             agent_type: "sk_azure_aifoundry_agent",
             agent_name: "AnimalPicker",
+            agent_description: "Agent that picks animals based on user's questions",
             aiagents_client: aiagents_client,
             ai_settings: ai_settings
             ) as AzureAIAgent;
@@ -131,7 +139,8 @@ internal class Program
         ChatCompletionAgent? animaljoker_agent = await GenericCreateAgentAsync(
             ai_settings: ai_settings,
             agent_type: "sk_chatcompletion_agent",
-            agent_name: "AnimalJoker"
+            agent_name: "AnimalJoker",
+            agent_description: "Agent that tells jokes about animals"
             ) as ChatCompletionAgent;
 
         // chat with the agent
@@ -147,7 +156,8 @@ internal class Program
         OpenAIAssistantAgent? statistician_agent = await GenericCreateAgentAsync(
             ai_settings: ai_settings,
             agent_type: "sk_assistantapi_agent",
-            agent_name: "Statistician"
+            agent_name: "Statistician",
+            agent_description: "Agent that provides statistics about jokes"
             ) as OpenAIAssistantAgent;
 
         // chat with the agent
@@ -163,7 +173,8 @@ internal class Program
         ChatCompletionAgent? reviewer_agent = await GenericCreateAgentAsync(
             ai_settings: ai_settings,
             agent_type: "sk_chatcompletion_agent",
-            agent_name: "Reviewer"
+            agent_name: "Reviewer",
+            agent_description: "Agent that reviews the conversation to check if it is satisfactory"
             ) as ChatCompletionAgent;
 
         // chat with the agent
@@ -172,9 +183,13 @@ internal class Program
             predefined_question: statistician_response);
         #endregion
 
-
-        // SequentialOrchestration orchestration = new(animalpicker_agent, animaljoker_agent);
-
+        #region Sequential Orchestration
+        Console.WriteLine("\n\n\n+++++++++++++++++ Sequential Orchestration +++++++++++++++++\n");
+        // Sequential Orchestration
+        var sequentialOrchestration_result = await SequentialOrchestrationCreateAgentAsync(
+            input: "doesn't matter",
+            agents: new Agent[] { creaturequestioner_agent, animalpicker_agent, animaljoker_agent, statistician_agent, reviewer_agent });
+        #endregion
     }
 
 
@@ -205,7 +220,7 @@ internal class Program
     // Single Chat function for all kinds of agents
     private static async Task<object> GenericCreateAgentAsync(
         string agent_type, string? agent_name = null, PersistentAgentsClient? aiagents_client = null,
-        string[]? s_files_to_search_in = null, string[]? s_files_to_work_with = null,
+        string[]? s_files_to_search_in = null, string[]? s_files_to_work_with = null, string? agent_description = null,
         AISettings? ai_settings = null, string? instructions = null, string? aiagent_id = null)
     {
 
@@ -250,6 +265,7 @@ internal class Program
             var sk_chatcompletion_agent = new ChatCompletionAgent
             {
                 Name = agent_name,
+                Description = agent_description,
                 Instructions = instructions,
                 Kernel = kernel,
                 Arguments = kernelArguments ?? new KernelArguments() // Provide a default value if kernelArguments is null
@@ -308,6 +324,7 @@ internal class Program
             Assistant assistant = await assistant_client.CreateAssistantAsync(
                 modelId: ai_settings.AzureOpenAI.ChatModelDeployment, // deployment name
                 name: agent_name,
+                description: agent_description,
                 instructions: instructions,
                 enableCodeInterpreter: true
                 //codeInterpreterFileIds: s_id_files_to_work_with,
@@ -325,7 +342,6 @@ internal class Program
             agent = sk_assistantapi_agent;
         }
 
-
         else if (agent_type == "sk_azure_aifoundry_agent")
         {
             BingGroundingToolDefinition bingGroundingTool = new(
@@ -340,7 +356,7 @@ internal class Program
                 sk_ai_agent_definition = await aiagents_client.Administration.CreateAgentAsync(
                     model: ai_settings.AzureOpenAI.ChatModelDeployment,
                     name: agent_name,
-                    description: agent_name,
+                    description: agent_description,
                     instructions: instructions,
                     tools: [bingGroundingTool]
                 );
@@ -368,7 +384,7 @@ internal class Program
 
         if (agent is ChatCompletionAgent sk_chatcompletion_agent)
         {
-            Console.Write("\nWelcome to the ChatCompletionAgent! Ask me anything, or type 'EXIT' to quit.\n");
+            Console.WriteLine($"Welcome to the ChatCompletionAgent {sk_chatcompletion_agent.Name}! Ask me anything, or type 'EXIT' to quit.\n");
 
             // Create a history store the conversation, however use ChatHistoryAgentThread instead of ChatHistory, which is deprecated
             var sk_chatcompletionagent_thread = new ChatHistoryAgentThread();
@@ -437,7 +453,7 @@ Your turn > ");
 
         else if (agent is OpenAIAssistantAgent sk_assistantapi_agent)
         {
-            Console.Write("\nWelcome to the OpenAI Assistant agent! Ask me anything, or type 'EXIT' to quit.\n");
+            Console.WriteLine("Welcome to the OpenAI Assistant agent {sk_assistantapi_agent.Name}! Ask me anything, or type 'EXIT' to quit.\n");
 
             // Here we just define (without creating) the AgentThread variable
             // An AgentThread will be started and returned as part of the response
@@ -505,7 +521,7 @@ Your turn > ");
 
         else if (agent is AzureAIAgent sk_aifoundry_agent)
         {
-            Console.Write("\nWelcome to the AI Foundry Agent (PersistentAgent object)! Ask me anything, or type 'EXIT' to quit.\n");
+            Console.WriteLine("Welcome to the AI Foundry Agent (PersistentAgent object) {sk_aifoundry_agent.Name}! Ask me anything, or type 'EXIT' to quit.\n");
             do
             {
                 if (string.IsNullOrWhiteSpace(predefined_question))
@@ -563,116 +579,67 @@ Your turn > ");
                 }
 
             } while (!exit_chat);
-
         }
 
         return agent_response;
     }
 
-    /*
-        private static Microsoft.SemanticKernel.Agents.AgentGroupChat GroupChatCreateAgentAsync(PersistentAgent animalpicker_agent, ChatCompletionAgent? animaljoker_agent,
-            OpenAIAssistantAgent? statistician_agent, ChatCompletionAgent? reviewer_agent, ChatCompletionAgent? creaturequestioner_agent, AISettings ai_settings)
-        {
-            // AGENT GROUP CHAT PREPARATION
+    private static async Task<string> SequentialOrchestrationCreateAgentAsync(string input, params Agent[] agents)
+    {
+        // Sequential Orchestration docs: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/agent-orchestration/sequential?pivots=programming-language-csharp
+        // SequentialOrchestration object: https://devblogs.microsoft.com/semantic-kernel/semantic-kernel-multi-agent-orchestration/
+        // SequentialOrchestration sample: https://github.com/microsoft/semantic-kernel/blob/main/dotnet/samples/GettingStartedWithAgents/Orchestration/Step02_Sequential.cs
+        // SequentialOrchestration or ConcurrentOrchestration, GroupChatOrchestration, HandoffOrchestration, MagenticOrchestration, ...
+        Console.WriteLine($"Welcome to the SequentialOrchestrationCreateAgentAsync function! Ask me anything, or type 'EXIT' to quit.\n");
 
-            // "Termination" kernel function that responds "yes" if the last message is satisfactory
-            const string TerminationToken = "YES";
-            KernelFunction terminationFunction =
-                AgentGroupChat.CreatePromptFunctionForStrategy(
-                    $$$"""
-                    Examine the **RESPONSE** and determine whether the content has been deemed satisfactory.
-                    If content is satisfactory, respond with a single word without explanation: {{{TerminationToken}}}.
-                    If specific suggestions are being provided without an explicit satisfaction check, it is not satisfactory.
-                    If it's made of a single word that doesn't mean being satisfactory, it's not satisfactory.
+        var orchestration = new SequentialOrchestration(agents);
 
-                    **RESPONSE**:
-                    {{$lastmessage}}
-                    """,
+        /*
+        Main differences between a process and an asynchronous function:
+        - Process: Runs in its own separate memory space and operates independently from the main program. It can utilize multiple CPU cores, allowing true parallel execution. 
+          It can communicate using Inter-Process Communication (IPC) but dosn't directly share memory. This is useful for CPU-intensive tasks that need isolation.
 
-                    safeParameterNames: "lastmessage");
+        - Asynchronous function: Runs within the same process and shares memory with the rest of the application. 
+          It does not enable parallel execution but instead allows non-blocking operations, making it efficient for I/O-bound tasks like networking or file access. 
+          Async functions keep the main thread responsive without launching a separate execution environment.
+        */
 
-            // "Selection" kernel function that receives the last message and responds the name of the next participant
-            KernelFunction selectionFunction =
-                AgentGroupChat.CreatePromptFunctionForStrategy(
-                    $$$"""
-                    Examine the provided **RESPONSE** and generate **EXCLUSIVELY A SINGLE WORD** with the name of the next participant.
+        var runtime = new InProcessRuntime(); // https://www.geeksforgeeks.org/difference-between-program-and-process/
+        await runtime.StartAsync();
 
-                    Choose only from these participants:
-                    - {{{creaturequestioner_agent.Name}}}
-                    - {{{animalpicker_agent.Name}}}
-                    - {{{animaljoker_agent.Name}}}
-                    - {{{statistician_agent.Name}}}
-                    - {{{reviewer_agent.Name}}}
+        OrchestrationResult<string> result = await orchestration.InvokeAsync(input, runtime);
+        // To retrieve the result, we need to invoke GetValueAsync(), which waits up to 60 seconds for the result to become available. 
+        // If the result is ready sooner, it is returned immediately. 
+        // If the result is not available within 60 seconds, a timeout exception is thrown, 
+        // but the orchestration continues running in the background, allowing you to retrieve the result later.
+        string text = await result.GetValueAsync(TimeSpan.FromSeconds(60));
 
-                    Always follow these rules when choosing the next participant:
-                    - If RESPONSE is user input, it is {{{animalpicker_agent.Name}}}'s turn.
-                    - If RESPONSE is by {{{animalpicker_agent.Name}}}, it is {{{animaljoker_agent.Name}}}'s turn.
-                    - If RESPONSE is by {{{animaljoker_agent.Name}}}, it is {{{statistician_agent.Name}}}'s turn.
-                    - If RESPONSE is by {{{statistician_agent.Name}}}, it is {{{reviewer_agent.Name}}}'s turn.
-                    - If RESPONSE is by {{{reviewer_agent.Name}}}, it is either {{{creaturequestioner_agent.Name}}}'s turn, or the conversazion is complete.
-                    - If RESPONSE is by {{{creaturequestioner_agent.Name}}}, it is {{{animalpicker_agent.Name}}}'s turn.
+        Console.Write($"\n# RESULT:\n{text}");
 
-                    RESPONSE:
-                    {{$lastmessage}}
-                    """,
+        await runtime.RunUntilIdleAsync(); // to ensure all agents have finished processing
 
-                    safeParameterNames: "lastmessage");
+        Console.WriteLine("\n\nORCHESTRATION HISTORY");
 
-            // history reducer that extracts the last message from the history
-            var historyReducer = new ChatHistoryTruncationReducer(targetCount: 1);
+        return text;
+    }
 
-            // Create the kernel builder with the pointer to Azure OpenAI
-            var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
-                deploymentName: ai_settings.AzureOpenAI.ChatModelDeployment,
-                endpoint: ai_settings.AzureOpenAI.Endpoint,
-                apiKey: ai_settings.AzureOpenAI.ApiKey
-                );
+    private readonly ChatHistory _history = [];
+    private ValueTask responseCallback(ChatMessageContent response)
+    {
+        this._history.Add(response);
+        return ValueTask.CompletedTask;
+    }
+    private static async Task<string> GroupChatOrchestrationCreateAgentAsync(params AzureAIAgent[] agents)
+    {
+        // Group Chat Orchestration docs: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/agent-orchestration/group-chat?pivots=programming-language-csharp
+        var orchestration = new GroupChatOrchestration(
+            new RoundRobinGroupChatManager { MaximumInvocationCount = 5 },
+            agents)
+        /*{
+            ResponseCallback = responseCallback,
+        }*/;
+        // to be completed
+        return "";
+    }
 
-            // Use the kernel builder to add enterprise components (for logging, in this case)
-            // library  Microsoft.Extensions.Logging
-            builder.Services.AddLogging(services => services.SetMinimumLevel(LogLevel.None));
-
-            // Build the kernel
-            Kernel kernel = builder.Build();
-
-            var orchestration = new Microsoft.SemanticKernel.Agents.Orchestration.GroupChat.GroupChatOrchestration(
-                terminationFunction: terminationFunction,
-                selectionFunction: selectionFunction,
-                kernel: kernel,
-                historyReducer: historyReducer
-
-            )
-
-            // create the Group Chat Agent
-            var groupChatAgent = new AgentGroupChat(animalpicker_agent animaljoker_agent, statistician_agent, reviewer_agent, creaturequestioner_agent)
-            {
-                // library Microsoft.SemanticKernel.Agents.Chat for AgentGroupChatSettings
-                ExecutionSettings = new AgentGroupChatSettings
-                {
-                    TerminationStrategy = new KernelFunctionTerminationStrategy(function: terminationFunction, kernel: kernel)
-                    {
-                        Agents = [reviewer_agent], // Only evaluate for editor's response
-                        HistoryReducer = historyReducer, // Save tokens by only including the final response
-                        HistoryVariableName = "lastmessage", // The prompt variable name for the history argument.
-                        // Customer result parser to determine if the response is "yes":
-                        ResultParser = (result) => result.GetValue<string>()?.Contains(TerminationToken, StringComparison.OrdinalIgnoreCase) ?? false,
-                        MaximumIterations = 50, // Limit total number of turns
-                    },
-
-                    SelectionStrategy = new KernelFunctionSelectionStrategy(function: selectionFunction, kernel: kernel)
-                    {
-                        InitialAgent = animalpicker_agent, // Always start with the editor agent.
-                        HistoryReducer = historyReducer, // Save tokens by only including the final response
-                        HistoryVariableName = "lastmessage", // The prompt variable name for the history argument.
-
-                        // Returns the entire result value as a string
-                        // "nullish coalescing" (??) operator returns the left value if not null/undefined; otherwise it returns the value on the right
-                        ResultParser = (result) => result.GetValue<string>() ?? reviewer_agent.Name
-                    }
-                }
-            };
-
-            return groupChatAgent;
-        }
-    */
 }
