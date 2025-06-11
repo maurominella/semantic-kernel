@@ -42,8 +42,10 @@ internal class Program
     private static string? s_aiagent_id = null;
     private static async Task Main(string[] args)
     {
+        Console.WriteLine("\n+++++++++++++++++ Application starts +++++++++++++++++");
+
         #region Environment Configuration
-        Console.WriteLine("Application starts");
+        Console.WriteLine("\n\n\n+++++++++++++++++ Environment Configuration +++++++++++++++++\n");
         // Load configuration from environment variables or user secrets.
         var ai_settings = new AISettings();
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {ai_settings.AzureOpenAI.Endpoint}\n" +
@@ -88,7 +90,7 @@ internal class Program
 
     // Single Chat function for all kinds of agents
     private static async Task<object> GenericCreateAgentAsync(
-        string agent_type, string? agent_name = null, PersistentAgentsClient? aiproject_client = null, PersistentAgentsClient? aiagents_client = null, string? deployment_name = null,
+        string agent_type, string? agent_name = null, PersistentAgentsClient? aiagents_client = null, string? deployment_name = null,
         string? bing_connection_id = null, string? aiagent_id = null)
     {
         // There are two options to create the Azure AI Foundry Agent
@@ -110,7 +112,7 @@ internal class Program
             PersistentAgent? sk_ai_agent;
             if (string.IsNullOrWhiteSpace(aiagent_id))
             {
-                sk_ai_agent = await aiproject_client.Administration.CreateAgentAsync(
+                sk_ai_agent = await aiagents_client.Administration.CreateAgentAsync(
                 model: deployment_name,
                     name: agent_name,
                     description: agent_name,

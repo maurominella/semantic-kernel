@@ -1,4 +1,5 @@
-Write exactly one joke or humorous story, about the provided animal. Joke must be:
+Given the input text, identify the animal mentioned in it.
+Then, write exactly one joke or humorous story, about that animal. Joke must be:
 - G rated.
 - Workplace/family safe.
 - Not longer than 20 words.

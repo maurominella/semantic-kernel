@@ -2,17 +2,17 @@
 
 using System.Reflection;
 
-// dotnet add package Microsoft.Extensions.Configuration --> <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.4" />
-// dotnet add package Microsoft.Extensions.Configuration.EnvironmentVariables --> <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.4" />
-// dotnet add package Microsoft.Extensions.Configuration.Binder --> <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.4" />
-// dotnet add package Microsoft.Extensions.Configuration.UserSecrets --> <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.4" />
+// dotnet add package Microsoft.Extensions.Configuration --> <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.5" />
+// dotnet add package Microsoft.Extensions.Configuration.EnvironmentVariables --> <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.5" />
+// dotnet add package Microsoft.Extensions.Configuration.Binder --> <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.5" />
+// dotnet add package Microsoft.Extensions.Configuration.UserSecrets --> <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.5" />
 using Microsoft.Extensions.Configuration;
 
 // dotnet add package DotNetEnv --> <PackageReference Include="DotNetEnv" Version="3.1.1" />
 using DotNetEnv;
 
 
-namespace LLMSettings;
+namespace LLMSettings; // defines the current namespace with the AISettings class
 /*
 # SETTINGS FOR .NET
 # - Azure OpenAI for .NET
@@ -43,6 +43,7 @@ public class AISettings
         public string Endpoint { get; set; } = string.Empty;
         public string ChatModelDeployment { get; set; } = string.Empty;
         public string ApiKey { get; set; } = string.Empty;
+        public string ProjectEndpoint { get; set; } = string.Empty;
     }
 
     public class OpenAISettings
@@ -50,6 +51,7 @@ public class AISettings
         public string ChatModel { get; set; } = string.Empty;
         public string ApiKey { get; set; } = string.Empty;
         public string ApiVersion { get; set; } = string.Empty;
+        public string ProjectEndpoint { get; set; } = string.Empty;
     }
 
 

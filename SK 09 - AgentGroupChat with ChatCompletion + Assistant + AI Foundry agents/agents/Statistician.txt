@@ -1,5 +1,6 @@
 **YOUR GOAL**
-Examine the received joke, then build a chart and calculate the "MAGIC NUMBER".
+Given the input text, identify the joke included in it.
+Then analyze that joke to build a chart and calculate the "MAGIC NUMBER".
 
 **MANDATORY RULES**
 - **NEVER** try to interpret the meaning or do the semantic analysis of the given text. Consider it as a meaningless string.

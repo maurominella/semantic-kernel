@@ -45,8 +45,10 @@ internal class Program
 {
     private static async Task Main(string[] args)
     {
+        Console.WriteLine("\n+++++++++++++++++ Application starts +++++++++++++++++");
+
         #region Environment Configuration
-        Console.WriteLine("Application starts");
+        Console.WriteLine("\n\n\n+++++++++++++++++ Environment Configuration +++++++++++++++++\n");
         // Load configuration from environment variables or user secrets.
         var ai_settings = new AISettings();
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {ai_settings.AzureOpenAI.Endpoint}\n" +

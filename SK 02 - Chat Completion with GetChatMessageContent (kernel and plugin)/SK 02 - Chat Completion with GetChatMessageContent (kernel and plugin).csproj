@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>SK_02___Chat_Completion_with_GetChatMessageContent__kernel_and_plugin__NEW</RootNamespace>
+    <RootNamespace>SK_02___Chat_Completion_with_GetChatMessageContent__kernel_and_plugin</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

@@ -2,16 +2,13 @@
 
 // Last update: June 6th, 2025
 
-// Created with: dotnet new console -n "SK 09 - AgentGroupChat with ChatCompletion + Assistant + AI Foundry agents_NEW" --framework net8.0
+// Created with: dotnet new console -n "SK 08 - ChatCompletion + Assistant + AI Foundry agents (no group)_NEW" --framework net9.0
 
 /*
 Supporting documentation:
-- Semantic Kernel Agents are now Generally Available: https://devblogs.microsoft.com/semantic-kernel/semantic-kernel-agents-are-now-generally-available/
 - Microsoft.SemanticKernel.Agents.AzureAI library documentation: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/azure-ai-agent?pivots=programming-language-csharp
 - Azure.AI.Agents.Persistent Namespace: https://learn.microsoft.com/en-us/dotnet/api/azure.ai.agents.persistent?view=azure-dotnet
 - AzureAIAgent Foundry GA Migration Guide: https://learn.microsoft.com/en-us/semantic-kernel/support/migration/azureagent-foundry-ga-migration-guide?pivots=programming-language-csharp
-- Semantic Kernel: Multi-agent Orchestration: https://devblogs.microsoft.com/semantic-kernel/semantic-kernel-multi-agent-orchestration/
-- AgentGroupChat Orchestration Migration Guide: https://learn.microsoft.com/en-us/semantic-kernel/support/migration/group-chat-orchestration-migration-guide?pivots=programming-language-csharp
 - Azure.AI.Agents.Persistent Namespace: https://learn.microsoft.com/en-us/dotnet/api/azure.ai.agents.persistent?view=azure-dotnet
 - Microsoft.SemanticKernel.Agents Namespace (prerelease): https://learn.microsoft.com/it-it/dotnet/api/microsoft.semantickernel.agents?view=semantic-kernel-dotnet
 - Create Agent with Bing Grounding: https://www.nuget.org/packages/Azure.AI.Agents.Persistent/1.0.0#create-agent-with-bing-grounding
@@ -26,7 +23,6 @@ Features included:
 */
 
 #region Libraries and Namespaces
-using Azure;
 
 // dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.5" />
 // dotnet add package Microsoft.Extensions.Logging.Console --> <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.5" />
@@ -39,26 +35,12 @@ using Microsoft.Extensions.DependencyInjection; // needed for AddLogging
 using Azure.AI.Agents.Persistent; // needed for PersistentAgentsClient, PersistentAgent, PersistentAgentThread, PersistentThreadMessage, ThreadRun, RunStatus, MessageRole, MessageContent, MessageTextContent, MessageImageFileContent, BingGroundingToolDefinition, BingGroundingSearchToolParameters, BingGroundingSearchConfiguration
 
 // dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.55.0" />
-using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents; // needed for ChatCompletion
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
 // dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.55.0-preview" />
-using Microsoft.SemanticKernel.Agents.OpenAI;
-using OpenAI.Assistants;
-using Azure.AI.OpenAI;
-using OpenAI.Files;
-// using OpenAI.VectorStores;
-
-// dotnet add package Microsoft.SemanticKernel.Agents.Orchestration --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Orchestration" Version="1.55.0-preview" />
-using Microsoft.SemanticKernel.Agents.Orchestration;
-using Microsoft.SemanticKernel.Agents.Orchestration.Sequential; // needed for SequentialOrchestration
-using Microsoft.SemanticKernel.Agents.Orchestration.GroupChat;
-// using Microsoft.SemanticKernel.Agents.Orchestration.GroupChat;
-
-// dotnet add package Microsoft.SemanticKernel.Agents.Runtime.InProcess --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Runtime.InProcess" Version="1.55.0-preview" />
-using Microsoft.SemanticKernel.Agents.Runtime.InProcess; // needed for InProcessRuntime
-
+using Microsoft.SemanticKernel.Agents.AzureAI;
 
 // JUST FOR ASSISTANT API'S
 // dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --><PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.55.0-preview" />
@@ -69,11 +51,14 @@ using Azure.Identity;
 using Microsoft.SemanticKernel.ChatCompletion;
 
 using AIPlugins;
-using Azure.AI.Projects;
-using Microsoft.SemanticKernel.Agents.AzureAI;
+using Microsoft.SemanticKernel.Agents.OpenAI;
+using OpenAI.Assistants;
+using Azure.AI.OpenAI;
+using OpenAI.Files;
+using OpenAI.VectorStores;
+using Azure.AI.Projects; // contains the LightsPlugin class
 
 namespace LLMSettings;
-
 
 #endregion
 
@@ -81,8 +66,10 @@ internal class Program
 {
     private static async Task Main(string[] args)
     {
+        Console.WriteLine("\n+++++++++++++++++ Application starts +++++++++++++++++");
+
         #region Environment Configuration
-        Console.WriteLine("Application starts");
+        Console.WriteLine("\n\n\n+++++++++++++++++ Environment Configuration +++++++++++++++++\n");
         // Load configuration from environment variables or user secrets.
         var ai_settings = new AISettings();
         Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {ai_settings.AzureOpenAI.Endpoint}\n" +
@@ -104,7 +91,7 @@ internal class Program
         // chat with the agent
         var creaturequestioner_response = await GenericChatWithAgentAsync(
             agent: creaturequestioner_agent,
-            predefined_question: "doesn't matter");
+            predefined_question: "");  // "doesn't matter");
         #endregion
 
         #region AnimalPicker (SK AI Foundry Agent with Bing Grounding Tool)
@@ -129,7 +116,7 @@ internal class Program
         // chat with the agent
         var animalpicker_response = await GenericChatWithAgentAsync(
             agent: animalpicker_agent,
-            predefined_question: creaturequestioner_response);
+            predefined_question: "");  //creaturequestioner_response);
         #endregion
 
         #region AnimalJoker (SK ChatCompletion Agent)
@@ -144,33 +131,40 @@ internal class Program
             ) as ChatCompletionAgent;
 
         // chat with the agent
-        var animaljoker_response = await GenericChatWithAgentAsync(agent: animaljoker_agent, predefined_question: animalpicker_response);
+        var animaljoker_response = await GenericChatWithAgentAsync(agent: animaljoker_agent, predefined_question: "");  // animalpicker_response);
         #endregion
 
         #region Statistician (SK Assistant Agent with CodeInterpreter)
         Console.WriteLine("\n\n\n+++++++++++++++++ Statistician (SDK Assistant Agent with CodeInterpreter) +++++++++++++++++\n");
 
-        // In this case, I do NOT use CodeInterpreter or FileClient tools. If you need them, please consider example #8
+        var filenames_to_search_in = new string[] { "data/search_files/trailmaster_product_info_1.md" };
+        var filenames_to_work_with = new string[] {
+            "data/codeinterpreter_files/turbines.csv",
+            "data/codeinterpreter_files/turbines.xlsx" };
 
         // library Microsoft.SemanticKernel.Agents.OpenAI for OpenAIAssistantAgent
         OpenAIAssistantAgent? statistician_agent = await GenericCreateAgentAsync(
             ai_settings: ai_settings,
             agent_type: "sk_assistantapi_agent",
             agent_name: "Statistician",
-            agent_description: "Agent that provides statistics about jokes"
+            agent_description: "Agent that provides statistics about jokes",
+            enableCodeInterpreter: true,
+            filenames_to_work_with: filenames_to_work_with,// filenames_to_work_with, // [],
+            enableFileSearch: true,
+            filenames_to_search_in: filenames_to_search_in //filenames_to_search_in [],
             ) as OpenAIAssistantAgent;
 
         // chat with the agent
         var statistician_response = await GenericChatWithAgentAsync(
             agent: statistician_agent,
-            predefined_question: animaljoker_response);
+            predefined_question: "");  // animaljoker_response);
         #endregion
 
         #region Reviewer (SK ChatCompletion Agent)
         Console.WriteLine("\n\n\n+++++++++++++++++ Reviewer (SK ChatCompletion Agent) +++++++++++++++++\n");
 
         // library Microsoft.SemanticKernel.Agents for ChatCompletionAgent
-        ChatCompletionAgent? reviewer_agent = await GenericCreateAgentAsync(
+        ChatCompletionAgent reviewer_agent = await GenericCreateAgentAsync(
             ai_settings: ai_settings,
             agent_type: "sk_chatcompletion_agent",
             agent_name: "Reviewer",
@@ -180,15 +174,7 @@ internal class Program
         // chat with the agent
         var reviewer_response = await GenericChatWithAgentAsync(
             agent: reviewer_agent,
-            predefined_question: statistician_response);
-        #endregion
-
-        #region Sequential Orchestration
-        Console.WriteLine("\n\n\n+++++++++++++++++ Sequential Orchestration +++++++++++++++++\n");
-        // Sequential Orchestration
-        var sequentialOrchestration_result = await SequentialOrchestrationCreateAgentAsync(
-            input: "doesn't matter",
-            agents: new Agent[] { creaturequestioner_agent, animalpicker_agent, animaljoker_agent, statistician_agent, reviewer_agent });
+            predefined_question: "");  // statistician_response);
         #endregion
     }
 
@@ -219,12 +205,13 @@ internal class Program
 
     // Single Chat function for all kinds of agents
     private static async Task<object> GenericCreateAgentAsync(
-        string agent_type, string? agent_name = null, PersistentAgentsClient? aiagents_client = null,
-        string[]? s_files_to_search_in = null, string[]? s_files_to_work_with = null, string? agent_description = null,
-        AISettings? ai_settings = null, string? instructions = null, string? aiagent_id = null)
+        string agent_type, string? agent_name = null, string? agent_description = null, string? aiagent_id = null,
+        PersistentAgentsClient? aiagents_client = null, AISettings? ai_settings = null, string? instructions = null,
+        bool enableFileSearch = false, string[]? filenames_to_search_in = null,
+        bool enableCodeInterpreter = false, string[]? filenames_to_work_with = null)
     {
 
-        object? agent = null;
+        object agent = null;
 
         // Provided instructions take the precedence of the ones stored in the agent's file
         if (string.IsNullOrWhiteSpace(instructions))
@@ -270,6 +257,7 @@ internal class Program
                 Kernel = kernel,
                 Arguments = kernelArguments ?? new KernelArguments() // Provide a default value if kernelArguments is null
             };
+            Console.WriteLine($"Created new ChatCompletionAgent <{sk_chatcompletion_agent.Name}> with Id <{sk_chatcompletion_agent.Id}>");
 
             agent = sk_chatcompletion_agent;
         }
@@ -283,23 +271,12 @@ internal class Program
             // Get the File Client
             OpenAIFileClient file_client = azure_openai_client.GetOpenAIFileClient();
 
-            /*
-
             // Upload the files to search in, with the openai assistant search feature
-            var s_openaifiles_to_search_in = new List<OpenAIFile>();
-            foreach (string f in s_files_to_search_in)
+            var s_files_to_search_in = new List<OpenAIFile>();
+            foreach (string f in filenames_to_search_in)
             {
                 OpenAIFile fileInfo = await file_client.UploadFileAsync(f, FileUploadPurpose.Assistants);
-                s_openaifiles_to_search_in.Add(fileInfo);
-                Console.WriteLine($"File <{f}> uploaded as <{fileInfo.Id}>");
-            }
-
-            // Upload the files to work with with openai assistant code interpreter
-            var s_id_files_to_work_with = new List<string>();
-            foreach (string f in s_files_to_work_with)
-            {
-                OpenAIFile fileInfo = await file_client.UploadFileAsync(f, FileUploadPurpose.Assistants);
-                s_id_files_to_work_with.Add(fileInfo.Id);
+                s_files_to_search_in.Add(fileInfo);
                 Console.WriteLine($"File <{f}> uploaded as <{fileInfo.Id}>");
             }
 
@@ -307,15 +284,27 @@ internal class Program
             VectorStoreClient storeClient = azure_openai_client.GetVectorStoreClient();
 
             // Create a Vector Store and add the files to it (only the ones to search in)
-            string storeId = (await storeClient.CreateVectorStoreAsync(waitUntilCompleted: true)).VectorStoreId;
-            Console.WriteLine($"New Vector Store created with Id = <{storeId}>");
-            foreach (OpenAIFile file in s_openaifiles_to_search_in) // if you want **ALL** files: (await fileClient.GetFilesAsync()).Value)
+            string storeId = null;
+
+            if (enableFileSearch && s_files_to_search_in.Count > 0)
             {
-                Console.WriteLine($"Adding new file <Id: {file.Id}, Name: {file.Filename}> to the <{storeId}> vector store...");
-                await storeClient.AddFileToVectorStoreAsync(storeId, file.Id, waitUntilCompleted: true);
+                storeId = (await storeClient.CreateVectorStoreAsync(waitUntilCompleted: true)).VectorStoreId;
+                Console.WriteLine($"New Vector Store created with Id = <{storeId}>");
+                foreach (OpenAIFile file in s_files_to_search_in) // if you want **ALL** files: (await fileClient.GetFilesAsync()).Value)
+                {
+                    Console.WriteLine($"Adding new file <Id: {file.Id}, Name: {file.Filename}> to the <{storeId}> vector store...");
+                    await storeClient.AddFileToVectorStoreAsync(storeId, file.Id, waitUntilCompleted: true);
+                }
             }
 
-            */
+            // Upload the files to work with with openai assistant code interpreter
+            var s_filesids_to_work_with = new List<string>();
+            foreach (string f in filenames_to_work_with)
+            {
+                OpenAIFile fileInfo = await file_client.UploadFileAsync(f, FileUploadPurpose.Assistants);
+                s_filesids_to_work_with.Add(fileInfo.Id);
+                Console.WriteLine($"File <{f}> uploaded as <{fileInfo.Id}>");
+            }
 
             // Get the ASSISTANT API CLIENT
             AssistantClient assistant_client = azure_openai_client.GetAssistantClient();
@@ -326,11 +315,12 @@ internal class Program
                 name: agent_name,
                 description: agent_description,
                 instructions: instructions,
-                enableCodeInterpreter: true
-                //codeInterpreterFileIds: s_id_files_to_work_with,
-                //enableFileSearch: true,
-                //vectorStoreId: storeId
-                ); // includes s_opeaifiles_to_search_in
+                enableFileSearch: enableFileSearch,
+                vectorStoreId: storeId,
+                enableCodeInterpreter: enableCodeInterpreter,
+                codeInterpreterFileIds: s_filesids_to_work_with
+                );
+
             Console.WriteLine($"Created new Assistant <{assistant.Name}> with Id <{assistant.Id}>");
 
             // Create an assistant AGENT
@@ -344,13 +334,15 @@ internal class Program
 
         else if (agent_type == "sk_azure_aifoundry_agent")
         {
+            PersistentAgent sk_ai_agent_definition;
+            AzureAIAgent sk_ai_agent;
+
             BingGroundingToolDefinition bingGroundingTool = new(
                 bingGrounding: new BingGroundingSearchToolParameters(
                     [new BingGroundingSearchConfiguration(connectionId: ai_settings.GetVariable("BING_CONNECTION_ID"))]
                 )
             );
 
-            PersistentAgent sk_ai_agent_definition;
             if (string.IsNullOrWhiteSpace(aiagent_id))
             {
                 sk_ai_agent_definition = await aiagents_client.Administration.CreateAgentAsync(
@@ -367,7 +359,9 @@ internal class Program
                 sk_ai_agent_definition = await aiagents_client.Administration.GetAgentAsync(aiagent_id);
             }
 
-            agent = new AzureAIAgent(sk_ai_agent_definition, aiagents_client);
+            sk_ai_agent = new AzureAIAgent(sk_ai_agent_definition, aiagents_client);
+            Console.WriteLine($"Created new AzureAIAgent <{sk_ai_agent.Name}> with Id <{sk_ai_agent.Id}>");
+            agent = sk_ai_agent;
         }
 
         return agent;
@@ -582,64 +576,6 @@ Your turn > ");
         }
 
         return agent_response;
-    }
-
-    private static async Task<string> SequentialOrchestrationCreateAgentAsync(string input, params Agent[] agents)
-    {
-        // Sequential Orchestration docs: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/agent-orchestration/sequential?pivots=programming-language-csharp
-        // SequentialOrchestration object: https://devblogs.microsoft.com/semantic-kernel/semantic-kernel-multi-agent-orchestration/
-        // SequentialOrchestration sample: https://github.com/microsoft/semantic-kernel/blob/main/dotnet/samples/GettingStartedWithAgents/Orchestration/Step02_Sequential.cs
-        // SequentialOrchestration or ConcurrentOrchestration, GroupChatOrchestration, HandoffOrchestration, MagenticOrchestration, ...
-        Console.WriteLine($"Welcome to the SequentialOrchestrationCreateAgentAsync function! Ask me anything, or type 'EXIT' to quit.\n");
-
-        var orchestration = new SequentialOrchestration(agents);
-
-        /*
-        Main differences between a process and an asynchronous function:
-        - Process: Runs in its own separate memory space and operates independently from the main program. It can utilize multiple CPU cores, allowing true parallel execution. 
-          It can communicate using Inter-Process Communication (IPC) but dosn't directly share memory. This is useful for CPU-intensive tasks that need isolation.
-
-        - Asynchronous function: Runs within the same process and shares memory with the rest of the application. 
-          It does not enable parallel execution but instead allows non-blocking operations, making it efficient for I/O-bound tasks like networking or file access. 
-          Async functions keep the main thread responsive without launching a separate execution environment.
-        */
-
-        var runtime = new InProcessRuntime(); // https://www.geeksforgeeks.org/difference-between-program-and-process/
-        await runtime.StartAsync();
-
-        OrchestrationResult<string> result = await orchestration.InvokeAsync(input, runtime);
-        // To retrieve the result, we need to invoke GetValueAsync(), which waits up to 60 seconds for the result to become available. 
-        // If the result is ready sooner, it is returned immediately. 
-        // If the result is not available within 60 seconds, a timeout exception is thrown, 
-        // but the orchestration continues running in the background, allowing you to retrieve the result later.
-        string text = await result.GetValueAsync(TimeSpan.FromSeconds(60));
-
-        Console.Write($"\n# RESULT:\n{text}");
-
-        await runtime.RunUntilIdleAsync(); // to ensure all agents have finished processing
-
-        Console.WriteLine("\n\nORCHESTRATION HISTORY");
-
-        return text;
-    }
-
-    private readonly ChatHistory _history = [];
-    private ValueTask responseCallback(ChatMessageContent response)
-    {
-        this._history.Add(response);
-        return ValueTask.CompletedTask;
-    }
-    private static async Task<string> GroupChatOrchestrationCreateAgentAsync(params AzureAIAgent[] agents)
-    {
-        // Group Chat Orchestration docs: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/agent-orchestration/group-chat?pivots=programming-language-csharp
-        var orchestration = new GroupChatOrchestration(
-            new RoundRobinGroupChatManager { MaximumInvocationCount = 5 },
-            agents)
-        /*{
-            ResponseCallback = responseCallback,
-        }*/;
-        // to be completed
-        return "";
     }
 
 }
