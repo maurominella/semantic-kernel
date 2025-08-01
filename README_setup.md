@@ -20,7 +20,7 @@ If you do not have one, you may create a folder called `git_repos`
 The file `./config/credentials_my.env` -without the final `(template)` in the name- will have to be updated with your own credentials in order to be shared among all repositories.
 
 ### 6. ***CD*** into `openai` folder of the cloned repository
-```cd openai```
+```cd semantic-kernel```
 
 ### 7. Install Miniconda from its [WEB site](https://www.anaconda.com/docs/getting-started/miniconda/install), choosing your operating system
 
@@ -28,23 +28,23 @@ The file `./config/credentials_my.env` -without the final `(template)` in the na
 
 ### 9. Environment provisioning for Azure AI Agent Service (`openai`)
 
-#### 9.1 Remove the pre-existing conda `openai` environment (if exists)
-```conda env remove -n openai -y```
+#### 9.1 Remove the pre-existing conda `semantic_kernel` environment (if exists)
+```conda env remove -n semantic_kernel -y```
 
-#### 9.2 Create new Conda Environment `openai` with Python 3.13
-```conda create -n openai python=3.13 -y```
+#### 9.2 Create new Conda Environment `semantic_kernel` with Python 3.13
+```conda create -n semantic_kernel python=3.13 -y```
 
-#### 9.3 Activate the `openai` environment
-```conda activate openai```
+#### 9.3 Activate the `semantic_kernel` environment
+```conda activate semantic_kernel```
 
 #### 9.4 Install libraries and dependencies
-```pip install -r requirements_openai.txt```
+```pip install -r requirements_semantic-kernel.txt```
 
-#### 9.5 Remove `openai` kernel (if exists)
-```jupyter kernelspec uninstall openai -y```
+#### 9.5 Remove `semantic_kernel` kernel (if exists)
+```jupyter kernelspec uninstall semantic_kernel -y```
 
-#### 9.6 Create `openai` kernel 
-```python -m ipykernel install --name openai --user```
+#### 9.6 Create `semantic_kernel` kernel 
+```python -m ipykernel install --name semantic_kernel --user```
 
-#### 9.7 Check kernels list to make sure that `openai` exists
+#### 9.7 Check kernels list to make sure that `semantic_kernel` exists
 ```jupyter kernelspec list```
