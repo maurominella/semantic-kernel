@@ -1,5 +1,5 @@
 # Mauro Minella repository for storing samples about<br/>
-# `Azure Open AI`  technologies
+# `Semantic Kernel` samples
 
 ## Environment preparation
 
@@ -11,7 +11,7 @@
 If you do not have one, you may create a folder called `git_repos`
 
 ### 4. Use `git` to clone this repo locally
-```git clone https://github.com/maurominella/openai.git```
+```git clone --branch my-feature-branch --single-branch https://github.com/maurominella/semantic-kernel.git```
 
 ### 5. Create a sub-folder of the base `git_repos` called `config` if it does not exist yet
 **Before** moving into this folder, just copy the file `credentials_my(template).env` of the cloned repo into it:
