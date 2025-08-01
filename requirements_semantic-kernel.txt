@@ -1,0 +1,4 @@
+azure-identity
+python-dotenv
+openai
+jupyter
