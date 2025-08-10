@@ -20,18 +20,18 @@ Features included:
 
 // dotnet new console -n "SK 07 - AI Foundry with persistent library_NEW" 
 
-// dotnet add package Azure.AI.Agents.Persistent --> <PackageReference Include="Azure.AI.Agents.Persistent" Version="1.0.0" />
+// dotnet add package Azure.AI.Agents.Persistent --> <PackageReference Include="Azure.AI.Agents.Persistent" Version="1.1.0" />
 using Azure.AI.Agents.Persistent;
 using Azure;
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.55.0" />
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.61.0" />
 // using Microsoft.SemanticKernel;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.55.0-preview" />
+// dotnet add package Microsoft.SemanticKernel.Agents.AzureAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.AzureAI" Version="1.61.0-preview" />
 using Azure.AI.Projects;
 
 
-// dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.14.0" />
+// dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.14.2" />
 using Azure.Identity;
 
 namespace LLMSettings;
@@ -58,7 +58,7 @@ internal class Program
         Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
         s_aiagent_id = Console.ReadLine();
 
-        var aiproject_client = new AIProjectClient(new Uri(ai_settings.GetVariable("PROJECT_ENDPOINT")), new AzureCliCredential());
+        var aiproject_client = new AIProjectClient(new Uri(ai_settings.GetVariable("AIF_STD_PROJECT_ENDPOINT")), new AzureCliCredential());
         // we could create the project agent without the project client, but we need it for the deletion
         PersistentAgentsClient aiagents_client = aiproject_client.GetPersistentAgentsClient();
 
@@ -70,7 +70,7 @@ internal class Program
             // aiproject_endpoint: aiSettings.GetVariable("PROJECT_ENDPOINT"),
             aiagents_client: aiagents_client,
             deployment_name: ai_settings.GetVariable("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
-            bing_connection_id: ai_settings.GetVariable("BING_CONNECTION_ID")
+            bing_connection_id: ai_settings.GetVariable("BING_GROUNDING_CONNECTION_ID")
             ) as PersistentAgent;
 
         try
@@ -187,9 +187,8 @@ Your turn > ");
                     run.Status,
                     run.LastError?.Message);*/
 
+
                 // Retrieve the messages from the run: assuming the run successfully completed, listing messages from the thread that was run will now reflect new information added by the agent
-
-
                 AsyncPageable<PersistentThreadMessage> messages =
                     aiagents_client.Messages.GetMessagesAsync(
                         threadId: thread.Id, order: ListSortOrder.Ascending);
