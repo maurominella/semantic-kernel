@@ -4,23 +4,24 @@
 
 // Import packages
 
-// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.6" />
-// dotnet add package Microsoft.Extensions.Logging.Console --> <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.6" />
+// dotnet add package Microsoft.Extensions.Logging --> <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.8" />
+// dotnet add package Microsoft.Extensions.Logging.Console --> <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.8" />
+// dotnet add package Microsoft.Extensions.Hosting --> <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.8" />
 using Microsoft.Extensions.Logging; // needed for LogLevel
 
-// dotnet add package Microsoft.Extensions.DependencyInjection --> <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.6" />
+// dotnet add package Microsoft.Extensions.DependencyInjection --> <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
 using Microsoft.Extensions.DependencyInjection; // needed for AddLogging
 
 
-// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.55.0" />
+// dotnet add package Microsoft.SemanticKernel --> <PackageReference Include="Microsoft.SemanticKernel" Version="1.61.0" />
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 
-// dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.55.0" />
+// dotnet add package Microsoft.SemanticKernel.Agents.Core --> <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.61.0" />
 using Microsoft.SemanticKernel.Agents; // needed for ChatCompletion
 
-// dotnet add package ModelContextProtocol --prerelease --> <PackageReference Include="ModelContextProtocol" Version="0.3.0-preview.1" />
+// dotnet add package ModelContextProtocol --prerelease --> <PackageReference Include="ModelContextProtocol" Version="0.3.0-preview.3" />
 using ModelContextProtocol.Client; // contains the IMcpClient interface
 
 // dotnet add package Microsoft.Extensions.Hosting --> <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.6" />
@@ -114,8 +115,7 @@ Microsoft.SemanticKernel.KernelPlugin lights_plugin = kernel.Plugins.AddFromType
 Microsoft.SemanticKernel.KernelPlugin github_plugin = kernel.Plugins.AddFromFunctions("GitHub", github_tools.Select(aiFunction => aiFunction.AsKernelFunction()));
 
 // Convert Azure MCP Tools to Kernel Functions
-// I can't run the next line because the Azure functions included here have a dash in their name, which is not allowed in the KernelFunction name
-// Microsoft.SemanticKernel.KernelPlugin azure_plugin = kernel.Plugins.AddFromFunctions("Azure", azure_tools.Select(aiFunction => aiFunction.AsKernelFunction()));
+Microsoft.SemanticKernel.KernelPlugin azure_plugin = kernel.Plugins.AddFromFunctions("Azure", azure_tools.Select(aiFunction => aiFunction.AsKernelFunction()));
 
 
 // Enable planning
@@ -159,6 +159,8 @@ Please ask me something, or type 'EXIT' to end the conversation.
 Examples of questions you can ask:
 - summarize the last four commits to the microsoft/semantic-kernel repository (e.g. GitHub MCP server usage),
 - list all my Azure Storage Accounts (e.g. Azure MCP server usage),
+- now create a table with three columns: account name, location, and resource group name
+- a new column with ordinal number in roman format, and sort by resource group and account name
 - how many feets are there in a mile? (e.g. normal Chat Completion, to show how the history is stored),
 - toggle the chandelier and tell me the status of all lights (e.g. Plugin usage),
 - tell me a joke with no less than 200 words (e.g. normal Chat Completion, to show streaming features),

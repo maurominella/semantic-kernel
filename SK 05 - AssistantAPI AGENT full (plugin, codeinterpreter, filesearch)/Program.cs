@@ -21,7 +21,7 @@ Package: Microsoft.SemanticKernel.Agents.OpenAI (prerelease) - Based on OpenAI A
 - Open AI announced deprecation by early 2026 (going away)
 */
 #region Libraries and Namespaces
-// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --><PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.55.0-preview" />
+// dotnet add package Microsoft.SemanticKernel.Agents.OpenAI --prerelease --> <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.61.0-preview" />
 using Microsoft.SemanticKernel.Agents.OpenAI;
 using Azure.AI.OpenAI;
 using OpenAI.VectorStores;
@@ -31,7 +31,7 @@ using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel; // does not require Microsoft.SemanticKernel module
 using Microsoft.SemanticKernel.ChatCompletion;
 
-// dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.14.0" />
+// dotnet add package Azure.Identity --> <PackageReference Include="Azure.Identity" Version="1.14.2" />
 using Azure.Identity;
 
 // contains the LightsPlugin class

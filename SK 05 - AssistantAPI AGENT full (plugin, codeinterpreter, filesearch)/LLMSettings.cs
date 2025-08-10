@@ -40,18 +40,18 @@ public class AISettings
 
     public class AzureOpenAISettings
     {
-        public string Endpoint { get; set; } = string.Empty;
-        public string ChatModelDeployment { get; set; } = string.Empty;
-        public string ApiKey { get; set; } = string.Empty;
-        public string ProjectEndpoint { get; set; } = string.Empty;
+        public string Endpoint { get; set; } = string.Empty; // AZUREOPENAISETTINGS__ENDPOINT
+        public string ChatModelDeployment { get; set; } = string.Empty; // AZUREOPENAISETTINGS__CHATMODELDEPLOYMENT
+        public string ApiKey { get; set; } = string.Empty; // AZUREOPENAISETTINGS__APIKEY
+        public string ProjectEndpoint { get; set; } = string.Empty; // AZUREOPENAISETTINGS__PROJECTENDPOINT
     }
 
     public class OpenAISettings
     {
-        public string ChatModel { get; set; } = string.Empty;
-        public string ApiKey { get; set; } = string.Empty;
-        public string ApiVersion { get; set; } = string.Empty;
-        public string ProjectEndpoint { get; set; } = string.Empty;
+        public string ChatModel { get; set; } = string.Empty; // OPENAISETTINGS__CHATMODEL
+        public string ApiKey { get; set; } = string.Empty; // OPENAISETTINGS__APIKEY
+        public string ApiVersion { get; set; } = string.Empty; // OPENAISETTINGS__APIVERSION
+        public string ProjectEndpoint { get; set; } = string.Empty; // OPENAISETTINGS__PROJECTENDPOINT
     }
 
 
