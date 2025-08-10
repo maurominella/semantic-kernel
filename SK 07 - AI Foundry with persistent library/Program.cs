@@ -58,7 +58,7 @@ internal class Program
         Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
         s_aiagent_id = Console.ReadLine();
 
-        var aiproject_client = new AIProjectClient(new Uri(ai_settings.GetVariable("AIF_STD_PROJECT_ENDPOINT")), new AzureCliCredential());
+        var aiproject_client = new AIProjectClient(new Uri(ai_settings.GetVariable("AIF_BAS_PROJECT_ENDPOINT")), new AzureCliCredential());
         // we could create the project agent without the project client, but we need it for the deletion
         PersistentAgentsClient aiagents_client = aiproject_client.GetPersistentAgentsClient();
 
