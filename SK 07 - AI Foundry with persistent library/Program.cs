@@ -3,7 +3,7 @@
 // Last update: June 6th, 2025
 
 // Microsoft.SemanticKernel.Agents.AzureAI library documentation: https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/azure-ai-agent?pivots=programming-language-csharp
-// Azure.AI.Agents.Persistent Namespace: https://learn.microsoft.com/en-us/dotnet/api/azure.ai.agents.persistent?view=azure-dotnet
+// Azure.AI.Agents.Persistent Namespace: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/ai.agents.persistent-readme?view=azure-dotnet
 // AzureAIAgent Foundry GA Migration Guide: https://learn.microsoft.com/en-us/semantic-kernel/support/migration/azureagent-foundry-ga-migration-guide?pivots=programming-language-csharp
 // Azure.AI.Agents.Persistent Namespace: https://learn.microsoft.com/en-us/dotnet/api/azure.ai.agents.persistent?view=azure-dotnet
 // Microsoft.SemanticKernel.Agents Namespace (prerelease): https://learn.microsoft.com/it-it/dotnet/api/microsoft.semantickernel.agents?view=semantic-kernel-dotnet
@@ -48,9 +48,25 @@ internal class Program
         Console.WriteLine("\n\n\n+++++++++++++++++ Environment Configuration +++++++++++++++++\n");
         // Load configuration from environment variables or user secrets.
         var ai_settings = new AISettings();
-        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {ai_settings.AzureOpenAI.Endpoint}\n" +
-        $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {ai_settings.AzureOpenAI.ChatModelDeployment}" +
-        $"PROJECT_ENDPOINT: {ai_settings.AzureOpenAI.ProjectEndpoint}");
+
+        var project_endpoint = ai_settings.GetVariable("AIF_BAS_PROJECT_ENDPOINT");
+        var project_group_name = ai_settings.GetVariable("AIF_BAS_PROJECT_GROUP_NAME");
+
+        var openai_endpoint = ai_settings.GetVariable("AZURE_OPENAI_ENDPOINT");
+        var chat_deployment_name = ai_settings.GetVariable("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME");
+        var azure_subscription_id = ai_settings.GetVariable("AZURE_SUBSCRIPTION_ID");
+        var bing_connection_name = ai_settings.GetVariable("BING_GROUNDING_CONNECTION_NAME");
+
+        var bing_connection_id = BingConnectionId(
+            project_endpoint: project_endpoint,
+            subscription_id: azure_subscription_id,
+            resource_group: project_group_name,
+            bingconnection_name: bing_connection_name
+        );
+
+        Console.WriteLine($"AZURE_OPENAI_ENDPOINT: {openai_endpoint}\n" +
+            $"AZURE_OPENAI_CHAT_DEPLOYMENT_NAME: {chat_deployment_name}\n" +
+            $"PROJECT_ENDPOINT: {project_endpoint}");
         #endregion
 
 
@@ -58,7 +74,7 @@ internal class Program
         Console.Write("\n\nPlease enter the AI Foundry Agent ID to load, or leave it blank to create a new one > ");
         s_aiagent_id = Console.ReadLine();
 
-        var aiproject_client = new AIProjectClient(new Uri(ai_settings.GetVariable("AIF_BAS_PROJECT_ENDPOINT")), new AzureCliCredential());
+        var aiproject_client = new AIProjectClient(new Uri(project_endpoint), new AzureCliCredential());
         // we could create the project agent without the project client, but we need it for the deletion
         PersistentAgentsClient aiagents_client = aiproject_client.GetPersistentAgentsClient();
 
@@ -67,10 +83,10 @@ internal class Program
             agent_type: "azure_aifoundry_agent",
             agent_name: "AnimalPicker",
             aiagent_id: s_aiagent_id,
-            // aiproject_endpoint: aiSettings.GetVariable("PROJECT_ENDPOINT"),
+            // aiproject_endpoint: project_endpoint,
             aiagents_client: aiagents_client,
-            deployment_name: ai_settings.GetVariable("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"),
-            bing_connection_id: ai_settings.GetVariable("BING_GROUNDING_CONNECTION_ID")
+            deployment_name: chat_deployment_name,
+            bing_connection_id: bing_connection_id
             ) as PersistentAgent;
 
         try
@@ -148,7 +164,7 @@ Examples of questions you can ask:
 - what is the biggest insect? (e.g. grounding with Bing Search),
 - what's the animal of the year for 2024? (e.g. grounding with Bing Search),
 - what's the biggest mammal? (e.g. grounding with Bing Search),
-- qual è l'animale più grande, che però non nuota? (e.g. grounding with Bing Search),
+- what's the biggest mammal, which does not swim? (e.g. grounding with Bing Search),
 
 Your turn > ");
 
@@ -222,6 +238,22 @@ Your turn > ");
         string filePath = Path.Combine("agents", $"{agentName}.txt");
         instructions = await File.ReadAllTextAsync(filePath);
         return instructions;
+    }
+
+    private static string BingConnectionId(
+        string project_endpoint, string subscription_id, string resource_group, string bingconnection_name)
+    {
+        // Extract the account name from the project_endpoint URL
+        // Assumes the format: https://{account_name}.services.ai.azure.com/...
+        var uri = new Uri(project_endpoint);
+        string host = uri.Host; // e.g., aif2stdsvhdu2.services.ai.azure.com
+        string account_name = host.Split('.')[0]; // e.g., aif2stdsvhdu2
+        string project_name = uri.ToString().Split('/').Last(); // e.g., aif2stdsvhdu2
+
+        // Construct the connection ID string
+        string connection_id = $"/subscriptions/{subscription_id}/resourceGroups/{resource_group}/providers/Microsoft.CognitiveServices/accounts/{account_name}/projects/{project_name}/connections/{bingconnection_name}";
+
+        return connection_id;
     }
 
 }
