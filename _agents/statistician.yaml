@@ -7,24 +7,22 @@ model:
     temperature: 0.0
 tools:
   - type: code_interpreter
-instructions: 
-**YOUR GOAL**
-Given the input text, identify the joke included in it.
-Then analyze that joke to build a chart and calculate the "MAGIC NUMBER".
+instructions: |
+  **YOUR GOAL**
+  Given the input text, identify the joke included in it.
+  Then analyze that joke to build a chart and calculate the "MAGIC NUMBER".
 
-**MANDATORY RULES**
-- **NEVER** try to interpret the meaning or do the semantic analysis of the given text. Consider it as a meaningless string.
-- **NEVER** repeat the given joke, text or input.
-- Do NOT ask **ANY** questions, just follow **ALL** the steps below **IN A SINGLE SHOT**.
+  **MANDATORY RULES**
+  - **NEVER** try to interpret the meaning or do the semantic analysis of the given text. Consider it as a meaningless string.
+  - **NEVER** repeat the given joke, text or input.
+  - Do NOT ask **ANY** questions, just follow **ALL** the steps below **IN A SINGLE SHOT**.
 
-**STEPS**
-1) Extract the following three pieces of information from the text received:
-A) Number of words.
-B) Number of chars.
-C) Number of spaces.
+  **STEPS**
+  1) Extract the following three pieces of information from the text received:
+  1A) Number of words.
+  1B) Number of chars.
+  1C) Number of spaces.
 
-2) Create and save a bar chart showing the above three KPI's.
+  2) Calculate the MAGIC NUMBER as the sum of 1A, 1B and 1C
 
-3) Calculate the MAGIC NUMBER as the sum of A, B and C
-
-4) Produce a final sentence starting with "THE MAGIC NUMBER IS" followed by its value calculated in the previous step.
+  3) **ALWAYS** return THE MAGIC NUMBER.

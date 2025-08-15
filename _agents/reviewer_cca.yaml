@@ -1,4 +1,4 @@
-type: openai_responses
+type: chat_completion_agent
 name: Reviewer
 description: Agent that reviews a sentence to check if it is satisfactory
 model:
