@@ -1,0 +1,18 @@
+type: openai_responses
+name: Reviewer
+description: Agent that reviews a sentence to check if it is satisfactory
+model:
+  id: {deployment_name}
+  options:
+    temperature: 0.0
+tools:
+  - id: MagicNumberValidator.validate_magic_number
+    type: function
+instructions:
+    # TASKS
+    Check if the MAGIC NUMBER is present and validated.
+    - If the MAGIC NUMBER is not present --> NOT SATISFIED.
+    - If the MAGIC NUMBER is not validated --> NOT SATISFIED.
+    - If the MAGIC NUMBER is validated --> SATISFIED.
+
+    **REGARDELESS** of the magic number being provided, **ALWAYS** start you answer saying if you are satisfied or not, reporting **ALSO** the validated magic number, if provided.
