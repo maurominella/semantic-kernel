@@ -1,6 +1,6 @@
 type: chat_completion_agent
 name: flavorhumorist_agent
-description: Takes the animal and crafts a joke or playful line that could appear in Ferrero’s social media, packaging, or in-store displays. It’s not just humor - it’s brand personality.
+description: Takes the animal and crafts a joke or playful line that could appear in Ferrero's social media, packaging, or in-store displays. It's not just humor - it's brand personality.
 model:
   id: {deployment_name}
   options:

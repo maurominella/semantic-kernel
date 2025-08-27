@@ -1,6 +1,6 @@
 type: azure_assistant
 name: delightmetrician_agent
-description: This is where the magic number becomes meaningful. It’s not just a sum — it’s a Delight Quotient. A symbolic KPI that quantifies how much joy, surprise, and brand resonance the joke carries. The Delight Metrician analyzes the joke to derive this number, which can be used to gauge the effectiveness of humor in brand communication.
+description: This is where the magic number becomes meaningful. It's not just a sum — it's a Delight Quotient. A symbolic KPI that quantifies how much joy, surprise, and brand resonance the joke carries. The Delight Metrician analyzes the joke to derive this number, which can be used to gauge the effectiveness of humor in brand communication.
 model:
   id: {deployment_name}
   options:
