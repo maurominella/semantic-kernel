@@ -5,7 +5,7 @@
 
 ### 1. Install Git from its [WEB site](https://git-scm.com/downloads), choosing your operating system
 
-### 2. Open a git/bash command prompt, or make sure that git executable is in the path
+### 2. Open a powershell or bash command prompt, making sure that sure that git executable is in the path
 
 ### 3. ***CD*** into the base folder for your git repositories
 If you do not have one, you may create a folder called `git_repos`
