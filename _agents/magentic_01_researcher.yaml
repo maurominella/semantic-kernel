@@ -1,0 +1,14 @@
+type: foundry_agent
+name: ResearchAgent
+description: A helpful assistant with access to web search. Ask it to perform web searches.
+model:
+  id: {deployment_name}
+  options:
+    temperature: 0.4
+tools:
+  - type: bing_grounding
+    options:
+      tool_connections:
+        - {bingconnection_id}
+instructions: >
+  You are a Researcher. You find information without additional computation or quantitative analysis.

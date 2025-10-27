@@ -1,11 +1,11 @@
 type: azure_assistant
-name: Statistician
+name: CoderAgent
 description: A helpful assistant that writes and executes code to process and analyze data.
 model:
   id: {deployment_name}
   options:
-    temperature: 0.0
+    temperature: 0.4
 tools:
   - type: code_interpreter
-instructions: |
+instructions: >
   You solve questions using code. Please provide detailed analysis and computation process.
