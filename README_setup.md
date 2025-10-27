@@ -49,3 +49,11 @@ Then, copy the file `credentials_my(template).env` of the cloned repo into the *
 
 #### 10.7 Check kernels list to make sure that `semantic_kernel` exists
 ```jupyter kernelspec list```
+
+#### 10.8 You can now run the jupyter service locally
+The following command configures a clean environment, that the Jupyter server launches without authentication errors:
+```jupyter notebook --IdentityProvider.token=''```
+
+For the next times, please simply run:
+```jupyter notebook```
+
