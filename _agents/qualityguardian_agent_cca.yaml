@@ -1,6 +1,6 @@
 type: chat_completion_agent
 name: qualityguardian_agent
-description: AValidates the magic number using Ferrero's storytelling plugin. If the number passes, it means the concept is emotionally rich, brand-safe, and ready for creative development.
+description: Validates the magic number using Ferrero's storytelling plugin. If the number passes, it means the concept is emotionally rich, brand-safe, and ready for creative development.
 model:
   id: {deployment_name}
   options:
