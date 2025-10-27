@@ -51,9 +51,8 @@ Then, copy the file `credentials_my(template).env` of the cloned repo into the *
 ```jupyter kernelspec list```
 
 #### 10.8 You can now run the jupyter service locally
-The following command configures a clean environment, that the Jupyter server launches without authentication errors:
+The following command configures a clean environment, that the Jupyter server launches without authentication errors:<br/>
 ```jupyter notebook --IdentityProvider.token=''```
 
 For the next times, please simply run:
 ```jupyter notebook```
-
