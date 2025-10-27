@@ -45,7 +45,7 @@ Then, copy the file `credentials_my(template).env` of the cloned repo into the *
 ```jupyter kernelspec uninstall semantic_kernel -y```
 
 #### 10.6 Create `semantic_kernel` kernel 
-```python -m ipykernel install --name semantic_kernel --user```
+```python -m ipykernel install --name semantic_kernel --display-name semantic_kernel --user```
 
 #### 10.7 Check kernels list to make sure that `semantic_kernel` exists
 ```jupyter kernelspec list```
