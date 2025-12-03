@@ -1,9 +1,6 @@
 # Mauro Minella repository for storing samples about<br/>
 # `Semantic Kernel` samples
 
-## This branch -***my-feature-branch***- cloning
-`git clone --branch my-feature-branch --single-branch https://github.com/maurominella/semantic-kernel.git`
-
 ## Environment preparation
 
 ### 1. Install Git from its [WEB site](https://git-scm.com/downloads), choosing your operating system
