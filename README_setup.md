@@ -30,7 +30,7 @@ On Windows: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/inst
 ### 9. Option 2 > Install Miniconda from its [WEB site](https://www.anaconda.com/docs/getting-started/miniconda/install), choosing your operating system
 After installing it, please open Miniconda bash / prompt, or make sure that conda executable is in the path
 
-### 10. Environment provisioning for Semantic Kernel (`semantic_kernel`) - using **UVCORN**
+### 10. Option 1 (UVCORN) > Environment provisioning for Semantic Kernel (`semantic_kernel`)
 
 #### 10.1 Remove the pre-existing `UV` environment (if exists)
 Delete folder ```.env```
@@ -68,7 +68,7 @@ Now you may run ```jupyter notebook```
 For the first time, run Jupyter server this way, to avoid authentication errors: ```jupyter notebook --IdentityProvider.token=''```
 For the next times, please simply run ```jupyter notebook```
 
-### 11. Environment provisioning for Semantic Kernel (`semantic_kernel`) - using **CONDA**
+### 11. Option 2 (CONDA) > Environment provisioning for Semantic Kernel (`semantic_kernel`)
 
 #### 11.1 Remove the pre-existing conda `semantic_kernel` environment (if exists)
 ```conda env remove -n semantic_kernel -y```
