@@ -36,11 +36,13 @@ After installing it, please open Miniconda bash / prompt, or make sure that cond
 Delete folder ```.env```
 
 #### 10.2 Create new UV Environment with Python 3.13
-A) "CD" into the root of the repo, e.g. ```cd semantic_kernel```
-B) ```conda create -n semantic_kernel python=3.13 -y```
-C) Rename the name of the project in pyproject.toml as follows:
-```[project]
-name = "sk-examples"```
+- A) "CD" into the root of the repo, e.g. ```cd semantic_kernel```
+- B) ```conda create -n semantic_kernel python=3.13 -y```
+- C) Rename the name of the project in pyproject.toml as follows:
+```
+[project]
+name = "sk-examples"
+```
 
 #### 10.3 Run a first UV sync, that will create the .venv folder in the root
 ```uv sync```
