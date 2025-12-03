@@ -23,34 +23,77 @@ Then, copy the file `credentials_my(template).env` of the cloned repo into the *
 ### 7. ***CD*** into `semantic_kernel` folder of the cloned repository
 ```cd semantic-kernel```
 
-### 8. Install Miniconda from its [WEB site](https://www.anaconda.com/docs/getting-started/miniconda/install), choosing your operating system
+### 8. Option 1 > Install UVCORN
+On Linux / MAC: curl -LsSf https://astral.sh/uv/install.sh | sh
+On Windows: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-### 9. Open Miniconda bash / prompt, or make sure that conda executable is in the path
+### 9. Option 2 > Install Miniconda from its [WEB site](https://www.anaconda.com/docs/getting-started/miniconda/install), choosing your operating system
+After installing it, please open Miniconda bash / prompt, or make sure that conda executable is in the path
 
-### 10. Environment provisioning for Semantic Kernel (`semantic_kernel`)
+### 10. Environment provisioning for Semantic Kernel (`semantic_kernel`) - using **UVCORN**
 
-#### 10.1 Remove the pre-existing conda `semantic_kernel` environment (if exists)
-```conda env remove -n semantic_kernel -y```
+#### 10.1 Remove the pre-existing `UV` environment (if exists)
+Delete folder ```.env```
 
-#### 10.2 Create new Conda Environment `semantic_kernel` with Python 3.13
-```conda create -n semantic_kernel python=3.13 -y```
+#### 10.2 Create new UV Environment with Python 3.13
+A) "CD" into the root of the repo, e.g. ```cd semantic_kernel```
+B) ```conda create -n semantic_kernel python=3.13 -y```
+C) Rename the name of the project in pyproject.toml as follows:
+```[project]
+name = "sk-examples"```
 
-#### 10.3 Activate the `semantic_kernel` environment
-```conda activate semantic_kernel```
+#### 10.3 Run a first UV sync, that will create the .venv folder in the root
+```uv sync```
 
 #### 10.4 Install libraries and dependencies
-```pip install -r requirements_semantic-kernel.txt```
+```uv add $(Get-Content requirements_semantic-kernel_unversioned.txt)```
 
-#### 10.5 Remove `semantic_kernel` kernel (if exists)
-```jupyter kernelspec uninstall semantic_kernel -y```
+#### 10.5 Sync again
+```uv sync```
 
-#### 10.6 Create `semantic_kernel` kernel 
-```python -m ipykernel install --name semantic_kernel --display-name semantic_kernel --user```
+#### 10.6 Activate the environment
+```.venv\Scripts\activate```
+Now you may run ```jupyter notebook```
 
 #### 10.7 Check kernels list to make sure that `semantic_kernel` exists
 ```jupyter kernelspec list```
 
-#### 10.8 You can now run the jupyter service locally
+#### 10.8 Remove `semantic_kernel` kernel (if exists)
+```jupyter kernelspec uninstall semantic_kernel -y```
+
+#### 10.9 Create `semantic_kernel` kernel
+```python -m ipykernel install --user --name=semantic_kernel --display-name "semantic_kernel"```
+
+#### 10.10 You can now run the jupyter service locally
+For the first time, run Jupyter server this way, to avoid authentication errors: ```jupyter notebook --IdentityProvider.token=''```
+For the next times, please simply run ```jupyter notebook```
+
+### 11. Environment provisioning for Semantic Kernel (`semantic_kernel`) - using **CONDA**
+
+#### 11.1 Remove the pre-existing conda `semantic_kernel` environment (if exists)
+```conda env remove -n semantic_kernel -y```
+
+#### 11.2 Create new Conda Environment `semantic_kernel` with Python 3.13
+```conda create -n semantic_kernel python=3.13 -y```
+
+#### 11.3 Activate the `semantic_kernel` environment
+```conda activate semantic_kernel```
+
+#### 11.4 Install libraries and dependencies
+```pip install -r requirements_semantic-kernel.txt```
+
+#### 11.5 Remove `semantic_kernel` kernel (if exists)
+```jupyter kernelspec uninstall semantic_kernel -y```
+
+#### 11.6 Create `semantic_kernel` kernel
+   
+
+```python -m ipykernel install --name semantic_kernel --display-name semantic_kernel --user```
+
+#### 11.7 Check kernels list to make sure that `semantic_kernel` exists
+```jupyter kernelspec list```
+
+#### 11.8 You can now run the jupyter service locally
 The following command configures a clean environment, that the Jupyter server launches without authentication errors:<br/>
 ```jupyter notebook --IdentityProvider.token=''```
 
