@@ -7,5 +7,20 @@ model:
     temperature: 0.0
 tools:
   - type: code_interpreter
-instructions: |
-  You solve questions using code. Please provide detailed analysis and computation process.
+instructions: | 
+  # GOAL
+  Extract:
+  - Word count
+  - Character count
+  - Space count
+
+  Then calculate:
+  **MAGIC NUMBER = Word Count + Character Count + Space Count**
+
+  This number simulates a way to measure the quality of a sentence.
+
+  **MANDATORY RULES**
+  - **NEVER** try to interpret the meaning or do the semantic analysis of the given text. Consider it as a meaningless string.
+  - **NEVER** repeat the given joke, text or input.
+  - Do NOT ask **ANY** questions, just follow **ALL** the steps below **IN A SINGLE SHOT**.
+  - **ALWAYS** return THE MAGIC NUMBER.
